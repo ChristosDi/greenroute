@@ -1,0 +1,84 @@
+<%- include('../partials/header') %>
+
+<div class="page-header">
+  <h1>Transport Modes</h1>
+  <span class="badge badge-teal"><%= modes.length %> modes</span>
+</div>
+
+<% if (error) { %><div class="alert alert-danger"><%= error %></div><% } %>
+<% if (success) { %><div class="alert alert-success"><%= success %></div><% } %>
+
+<!-- Add Mode Form -->
+<div class="card mb-2">
+  <h3 class="mb-1">Add Transport Mode</h3>
+  <form action="/admin/transport-modes" method="POST">
+    <div class="form-row">
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" name="name" class="form-control" placeholder="e.g. Electric Car" required>
+      </div>
+      <div class="form-group">
+        <label>Emission Factor (gCO&#8322;/km)</label>
+        <input type="number" name="emissionFactor" class="form-control" step="0.1" min="0" placeholder="e.g. 170" required>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Icon (emoji)</label>
+        <input type="text" name="icon" class="form-control" placeholder="e.g. 🚗" maxlength="4">
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <input type="text" name="description" class="form-control" placeholder="Optional">
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary">Add Mode</button>
+  </form>
+</div>
+
+<!-- Modes List -->
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Icon</th>
+          <th>Name</th>
+          <th>gCO&#8322;/km</th>
+          <th>Description</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% modes.forEach(function(m) { %>
+          <tr style="<%= !m.isActive ? 'opacity:0.5' : '' %>">
+            <td style="font-size:1.3rem;"><%= m.icon %></td>
+            <td style="font-weight:500;color:var(--text-primary);"><%= m.name %></td>
+            <td style="font-weight:600;color:var(--aurora-teal);"><%= m.emissionFactor %></td>
+            <td><%= m.description || '—' %></td>
+            <td>
+              <span class="badge <%= m.isActive ? 'badge-success' : 'badge-danger' %>">
+                <%= m.isActive ? 'Active' : 'Inactive' %>
+              </span>
+            </td>
+            <td>
+              <div style="display:flex;gap:0.3rem;">
+                <form action="/admin/transport-modes/<%= m._id %>/toggle" method="POST">
+                  <button type="submit" class="btn btn-secondary btn-xs">
+                    <%= m.isActive ? 'Disable' : 'Enable' %>
+                  </button>
+                </form>
+                <form action="/admin/transport-modes/<%= m._id %>/delete" method="POST" onsubmit="return confirm('Delete this mode?')">
+                  <button type="submit" class="btn btn-danger btn-xs">&#128465;</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

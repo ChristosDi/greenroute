@@ -1,0 +1,32 @@
+<%- include('../partials/header') %>
+
+<div class="auth-wrapper">
+  <div class="auth-card">
+    <div class="brand">
+      <h1>&#127807; GreenRoute</h1>
+      <p>Sustainable Urban Transport Platform</p>
+    </div>
+
+    <% if (error) { %>
+      <div class="alert alert-danger"><%= error %></div>
+    <% } %>
+
+    <form action="/auth/login" method="POST">
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" class="form-control" placeholder="you@email.com" required autofocus>
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" class="form-control" placeholder="Enter password" required>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;margin-top:0.5rem;">Sign In</button>
+    </form>
+
+    <div class="auth-footer">
+      Don't have an account? <a href="/auth/register">Create one</a>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

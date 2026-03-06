@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GreenRoute — Error</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <div class="error-page">
+    <div>
+      <h1>Oops</h1>
+      <p style="font-size:1.1rem;margin:1rem 0;"><%= typeof message !== 'undefined' ? message : 'Something went wrong' %></p>
+      <a href="/dashboard" class="btn btn-primary">Back to Dashboard</a>
+      <a href="/" class="btn btn-secondary" style="margin-left:0.5rem;">Home</a>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,39 @@
+<%- include('partials/header') %>
+
+<div class="page-header">
+  <h1>My Profile</h1>
+</div>
+
+<div class="stats-grid mb-2">
+  <div class="stat-card teal">
+    <div class="stat-label">Journeys</div>
+    <div class="stat-value"><%= journeyCount %></div>
+  </div>
+  <div class="stat-card purple">
+    <div class="stat-label">Vehicles</div>
+    <div class="stat-value"><%= vehicleCount %></div>
+  </div>
+  <div class="stat-card blue">
+    <div class="stat-label">Role</div>
+    <div class="stat-value" style="font-size:1.2rem;text-transform:capitalize;"><%= userDoc.role %></div>
+  </div>
+</div>
+
+<div class="card">
+  <h3 class="mb-1">Update Details</h3>
+  <form action="/profile" method="POST">
+    <div class="form-row">
+      <div class="form-group">
+        <label for="name">Name</label>
+        <input type="text" id="name" name="name" class="form-control" value="<%= userDoc.name %>" required>
+      </div>
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" class="form-control" value="<%= userDoc.email %>" required>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary">Save Changes</button>
+  </form>
+</div>
+
+<%- include('partials/footer') %>

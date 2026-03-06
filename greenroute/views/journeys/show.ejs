@@ -1,0 +1,72 @@
+<%- include('../partials/header') %>
+
+<div class="page-header">
+  <h1><%= journey.origin %> &#8594; <%= journey.destination %></h1>
+  <div class="btn-group">
+    <a href="/journeys/<%= journey._id %>/edit" class="btn btn-secondary btn-sm">Edit</a>
+    <form action="/journeys/<%= journey._id %>/delete" method="POST" style="display:inline;" onsubmit="return confirm('Delete this journey?')">
+      <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+    </form>
+    <a href="/journeys" class="btn btn-secondary btn-sm">Back</a>
+  </div>
+</div>
+
+<div class="card mb-2">
+  <div class="detail-grid">
+    <div class="detail-item">
+      <div class="dl">Distance</div>
+      <div class="dv"><%= journey.distance %> km</div>
+    </div>
+    <div class="detail-item">
+      <div class="dl">Date</div>
+      <div class="dv"><%= new Date(journey.date).toLocaleDateString('en-GB', { weekday:'short', year:'numeric', month:'short', day:'numeric' }) %></div>
+    </div>
+    <div class="detail-item">
+      <div class="dl">Transport Mode</div>
+      <div class="dv"><%= journey.transportMode ? journey.transportMode.icon + ' ' + journey.transportMode.name : 'N/A' %></div>
+    </div>
+    <div class="detail-item">
+      <div class="dl">Vehicle</div>
+      <div class="dv"><%= journey.userVehicle ? journey.userVehicle.nickname : 'None' %></div>
+    </div>
+    <div class="detail-item">
+      <div class="dl">Road Gradient</div>
+      <div class="dv"><%= journey.gradient %>%</div>
+    </div>
+    <div class="detail-item">
+      <div class="dl">Gradient Modifier</div>
+      <div class="dv"><%= journey.gradientModifier %>x</div>
+    </div>
+    <div class="detail-item">
+      <div class="dl">Elevation</div>
+      <div class="dv">&#8593; <%= journey.elevationGain %>m &nbsp; &#8595; <%= journey.elevationLoss %>m</div>
+    </div>
+    <div class="detail-item">
+      <div class="dl">Emission Source</div>
+      <div class="dv"><span class="badge badge-<%= journey.emissionSource === 'vehicle' ? 'teal' : 'blue' %>"><%= journey.emissionSource %></span></div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h3 class="mb-1">Emissions Breakdown</h3>
+  <div class="detail-grid">
+    <div class="detail-item">
+      <div class="dl">Base Emissions (flat road)</div>
+      <div class="dv"><%= journey.baseEmissions %> <span style="font-size:0.8rem;color:var(--text-muted)">gCO&#8322;</span></div>
+    </div>
+    <div class="detail-item" style="border-color:rgba(139,92,246,0.3);">
+      <div class="dl">Gradient-Adjusted Emissions</div>
+      <div class="dv" style="color:var(--aurora-purple);font-size:1.4rem;"><%= journey.emissions %> <span style="font-size:0.8rem;color:var(--text-muted)">gCO&#8322;</span></div>
+    </div>
+  </div>
+  <% if (journey.gradientModifier !== 1) { %>
+    <p class="mt-1" style="font-size:0.85rem;">
+      The road gradient added
+      <strong style="color:var(--aurora-purple);"><%= ((journey.gradientModifier - 1) * 100).toFixed(1) %>%</strong>
+      to the base emissions due to terrain along this route.
+    </p>
+  <% } %>
+</div>
+
+<%- include('../partials/footer') %>

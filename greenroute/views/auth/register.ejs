@@ -1,0 +1,42 @@
+<%- include('../partials/header') %>
+
+<div class="auth-wrapper">
+  <div class="auth-card">
+    <div class="brand">
+      <h1>&#127807; GreenRoute</h1>
+      <p>Create your account</p>
+    </div>
+
+    <% if (error) { %>
+      <div class="alert alert-danger"><%= error %></div>
+    <% } %>
+
+    <form action="/auth/register" method="POST">
+      <div class="form-group">
+        <label for="name">Full Name</label>
+        <input type="text" id="name" name="name" class="form-control" placeholder="John Doe" required autofocus>
+      </div>
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" class="form-control" placeholder="you@email.com" required>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" class="form-control" placeholder="Min 6 chars" required minlength="6">
+        </div>
+        <div class="form-group">
+          <label for="confirmPassword">Confirm</label>
+          <input type="password" id="confirmPassword" name="confirmPassword" class="form-control" placeholder="Repeat" required>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;margin-top:0.5rem;">Create Account</button>
+    </form>
+
+    <div class="auth-footer">
+      Already have an account? <a href="/auth/login">Sign in</a>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

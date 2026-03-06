@@ -1,0 +1,48 @@
+<%- include('../partials/header') %>
+
+<div class="page-header">
+  <div>
+    <h1>My Journeys</h1>
+    <p><%= journeys.length %> journeys &middot; <%= (totalDistance).toFixed(1) %> km &middot; <%= totalEmissions >= 1000 ? (totalEmissions/1000).toFixed(1) + ' kg' : totalEmissions + ' g' %> CO&#8322;</p>
+  </div>
+  <a href="/journeys/new" class="btn btn-primary">+ Log Journey</a>
+</div>
+
+<% if (journeys.length === 0) { %>
+  <div class="card">
+    <div class="empty-state">
+      <div class="empty-icon">&#128663;</div>
+      <p>No journeys yet. Start tracking your carbon footprint.</p>
+      <a href="/journeys/new" class="btn btn-primary">Log your first journey</a>
+    </div>
+  </div>
+<% } else { %>
+  <div class="journey-list">
+    <% journeys.forEach(function(j) { %>
+      <a href="/journeys/<%= j._id %>" class="journey-card">
+        <div>
+          <div class="journey-route">
+            <span class="route-dot"></span>
+            <%= j.origin %>
+            <span class="route-line"></span>
+            <span class="route-dot" style="background:var(--aurora-purple)"></span>
+            <%= j.destination %>
+          </div>
+          <div class="journey-meta">
+            <span><%= j.distance %> km</span>
+            <span><%= j.transportMode ? j.transportMode.icon + ' ' + j.transportMode.name : 'N/A' %></span>
+            <span><%= new Date(j.date).toLocaleDateString('en-GB') %></span>
+            <% if (j.gradient) { %><span>Grad: <%= j.gradient %>%</span><% } %>
+            <% if (j.gradientModifier !== 1) { %><span class="badge badge-purple"><%= j.gradientModifier %>x</span><% } %>
+          </div>
+        </div>
+        <div class="journey-emissions">
+          <div class="em-value"><%= j.emissions >= 1000 ? (j.emissions/1000).toFixed(1) + 'k' : j.emissions %></div>
+          <div class="em-label">gCO&#8322;</div>
+        </div>
+      </a>
+    <% }) %>
+  </div>
+<% } %>
+
+<%- include('../partials/footer') %>

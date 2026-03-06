@@ -1,0 +1,303 @@
+<%- include('../partials/header') %>
+
+  <div class="page-header">
+    <h1>Edit Journey</h1>
+    <a href="/journeys/<%= journey._id %>" class="btn btn-secondary btn-sm">Cancel</a>
+  </div>
+
+  <% if (error) { %>
+    <div class="alert alert-danger">
+      <%= error %>
+    </div>
+    <% } %>
+
+      <form action="/journeys/<%= journey._id %>" method="POST" id="journeyForm">
+        <div class="card mb-2">
+          <h3 class="mb-1">Route</h3>
+
+          <div class="form-group">
+            <label for="origin">Origin</label>
+            <div class="input-with-btn">
+              <div class="autocomplete-wrap" style="flex:1;">
+                <input type="text" id="origin" name="origin" class="form-control" value="<%= journey.origin %>" required
+                  autocomplete="off">
+                <div class="autocomplete-list" id="originList"></div>
+              </div>
+              <button type="button" class="btn-locate" id="locateOriginBtn" title="Use my location">&#128205;</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="destination">Destination</label>
+            <div class="input-with-btn">
+              <div class="autocomplete-wrap" style="flex:1;">
+                <input type="text" id="destination" name="destination" class="form-control"
+                  value="<%= journey.destination %>" required autocomplete="off">
+                <div class="autocomplete-list" id="destList"></div>
+              </div>
+              <button type="button" class="btn-locate" id="locateDestBtn" title="Use my location">&#128205;</button>
+            </div>
+          </div>
+
+          <div class="route-panel" id="routePanel">
+            <h3>&#127760; Route Information</h3>
+            <div class="loading-spinner" id="routeLoading">
+              <div class="spinner"></div>
+              <span>Recalculating...</span>
+            </div>
+            <div id="routeDetails">
+              <div class="route-grid">
+                <div class="form-group">
+                  <label>Auto Distance (km)</label>
+                  <input type="number" id="autoDistance" class="form-control" readonly value="<%= journey.distance %>"
+                    step="0.01">
+                </div>
+                <div class="form-group">
+                  <label>Road Gradient</label>
+                  <input type="text" id="gradientDisplay" class="form-control" readonly
+                    value="<%= journey.gradient %>%">
+                </div>
+                <div class="form-group">
+                  <label>Elevation</label>
+                  <input type="text" id="elevationDisplay" class="form-control" readonly
+                    value="&#8593;<%= journey.elevationGain %>m &#8595;<%= journey.elevationLoss %>m">
+                </div>
+                <div class="form-group">
+                  <label>Gradient Modifier</label>
+                  <input type="text" id="modifierDisplay" class="form-control" readonly
+                    value="<%= journey.gradientModifier %>x">
+                </div>
+              </div>
+            </div>
+            <div class="hidden" id="routeError" style="color:var(--danger);font-size:0.88rem;padding:0.5rem 0;"></div>
+          </div>
+
+          <div class="form-group">
+            <label for="manualDistance">Distance Override (km)</label>
+            <input type="number" id="manualDistance" name="manualDistance" class="form-control" step="0.01" min="0"
+              placeholder="Leave blank to use auto distance">
+          </div>
+
+          <input type="hidden" id="distance" name="distance" value="<%= journey.distance %>">
+          <input type="hidden" id="gradient" name="gradient" value="<%= journey.gradient %>">
+          <input type="hidden" id="elevationGain" name="elevationGain" value="<%= journey.elevationGain %>">
+          <input type="hidden" id="elevationLoss" name="elevationLoss" value="<%= journey.elevationLoss %>">
+          <input type="hidden" id="gradientModifier" name="gradientModifier" value="<%= journey.gradientModifier %>">
+        </div>
+
+        <div class="card mb-2">
+          <h3 class="mb-1">Emission Source</h3>
+
+          <div class="form-group">
+            <label for="transportModeId">Transport Mode</label>
+            <select id="transportModeId" name="transportModeId" class="form-control">
+              <option value="">-- Select mode --</option>
+              <% transportModes.forEach(function(mode) { %>
+                <option value="<%= mode._id %>" data-factor="<%= mode.emissionFactor %>" <%=journey.transportMode &&
+                  mode._id.toString()===(journey.transportMode._id || journey.transportMode).toString() ? 'selected'
+                  : '' %> data-gradient="<%= mode.usesGradient %>>
+                  <%= mode.icon %>
+                    <%= mode.name %> (<%= mode.emissionFactor %> gCO&#8322;/km)
+                </option>
+                <% }) %>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="userVehicleId">My Vehicle</label>
+            <select id="userVehicleId" name="userVehicleId" class="form-control">
+              <option value="">-- Use transport mode default --</option>
+              <% userVehicles.forEach(function(v) { %>
+                <option value="<%= v._id %>" data-co2="<%= v.co2 || '' %>" <%=journey.userVehicle &&
+                  v._id.toString()===(journey.userVehicle._id || journey.userVehicle).toString() ? 'selected' : '' %>>
+                  <%= v.nickname %> (<%= v.manufacturer %>
+                      <%= v.model %>)<%= v.co2 ? ' — ' + v.co2 + ' gCO₂/km' : '' %>
+                </option>
+                <% }) %>
+            </select>
+          </div>
+        </div>
+
+        <div class="emissions-preview" id="emissionsPreview">
+          <span class="em-label">Estimated:</span>
+          <span class="em-base" id="baseEmVal">
+            <%= journey.baseEmissions %>g (flat)
+          </span>
+          <span class="em-arrow">&#8594;</span>
+          <span class="em-adjusted" id="adjEmVal">
+            <%= journey.emissions %>
+          </span>
+          <span class="em-unit">gCO&#8322;</span>
+        </div>
+
+        <div class="btn-group">
+          <button type="submit" class="btn btn-primary">Update Journey</button>
+          <a href="/journeys/<%= journey._id %>" class="btn btn-secondary">Cancel</a>
+        </div>
+      </form>
+
+      <script>
+        (function () {
+          // ── Autocomplete setup (identical logic to new.ejs) ───────
+          function setupAutocomplete(inputEl, listEl) {
+            var debounceTimer = null, highlightIndex = -1, currentItems = [], suppressNextInput = false;
+
+            inputEl.addEventListener('input', function () {
+              if (suppressNextInput) { suppressNextInput = false; return; }
+              clearTimeout(debounceTimer);
+              var text = inputEl.value.trim();
+              if (text.length < 2) { listEl.classList.remove('visible'); return; }
+              debounceTimer = setTimeout(function () {
+                fetch('/api/autocomplete?text=' + encodeURIComponent(text))
+                  .then(function (r) { return r.json(); })
+                  .then(function (s) { currentItems = s; highlightIndex = -1; renderList(s, listEl); })
+                  .catch(function () { listEl.classList.remove('visible'); });
+              }, 300);
+            });
+
+            function renderList(suggestions, listEl) {
+              if (!suggestions.length) { listEl.innerHTML = '<div class="autocomplete-item"><span class="ac-no-results">No locations found</span></div>'; listEl.classList.add('visible'); return; }
+              var html = '';
+              suggestions.forEach(function (s, i) {
+                var sec = [s.region, s.county, s.country].filter(Boolean).join(', ');
+                html += '<div class="autocomplete-item" data-index="' + i + '"><span class="ac-icon">&#128205;</span><div class="ac-text"><div class="ac-name">' + esc(s.name) + '</div>' + (sec ? '<div class="ac-region">' + esc(sec) + '</div>' : '') + '</div></div>';
+              });
+              listEl.innerHTML = html; listEl.classList.add('visible');
+              listEl.querySelectorAll('.autocomplete-item').forEach(function (item) {
+                item.addEventListener('mousedown', function (e) { e.preventDefault(); selectItem(parseInt(item.getAttribute('data-index'))); });
+              });
+            }
+
+            function selectItem(idx) {
+              if (idx < 0 || idx >= currentItems.length) return;
+              suppressNextInput = true; inputEl.value = currentItems[idx].label;
+              listEl.classList.remove('visible'); triggerRouteCalc();
+            }
+
+            inputEl.addEventListener('keydown', function (e) {
+              var items = listEl.querySelectorAll('.autocomplete-item[data-index]'); if (!items.length) return;
+              if (e.key === 'ArrowDown') { e.preventDefault(); highlightIndex = Math.min(highlightIndex + 1, items.length - 1); items.forEach(function (it, i) { it.classList.toggle('highlighted', i === highlightIndex); }); }
+              else if (e.key === 'ArrowUp') { e.preventDefault(); highlightIndex = Math.max(highlightIndex - 1, 0); items.forEach(function (it, i) { it.classList.toggle('highlighted', i === highlightIndex); }); }
+              else if (e.key === 'Enter' && highlightIndex >= 0) { e.preventDefault(); selectItem(highlightIndex); }
+              else if (e.key === 'Escape') { listEl.classList.remove('visible'); }
+            });
+
+            inputEl.addEventListener('blur', function () { setTimeout(function () { listEl.classList.remove('visible'); }, 200); });
+          }
+
+          function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+          var originEl = document.getElementById('origin'), destEl = document.getElementById('destination');
+          setupAutocomplete(originEl, document.getElementById('originList'));
+          setupAutocomplete(destEl, document.getElementById('destList'));
+
+          // ── Route calculation ─────────────────────────────────────
+          var autoDistEl = document.getElementById('autoDistance'), manDistEl = document.getElementById('manualDistance');
+          var distHidden = document.getElementById('distance'), routePanel = document.getElementById('routePanel');
+          var routeLoad = document.getElementById('routeLoading'), routeDetail = document.getElementById('routeDetails');
+          var routeErr = document.getElementById('routeError');
+          var gradHidden = document.getElementById('gradient'), gainHidden = document.getElementById('elevationGain');
+          var lossHidden = document.getElementById('elevationLoss'), modHidden = document.getElementById('gradientModifier');
+          var gradDisp = document.getElementById('gradientDisplay'), elevDisp = document.getElementById('elevationDisplay');
+          var modDisp = document.getElementById('modifierDisplay');
+          var baseEmEl = document.getElementById('baseEmVal'), adjEmEl = document.getElementById('adjEmVal');
+          var modeSelect = document.getElementById('transportModeId'), vehSelect = document.getElementById('userVehicleId');
+          var origO = originEl.value.trim(), origD = destEl.value.trim();
+
+          function show(el) { el.classList.remove('hidden'); } function hide(el) { el.classList.add('hidden'); }
+
+          var routeDebounce = null;
+          function triggerRouteCalc() { clearTimeout(routeDebounce); routeDebounce = setTimeout(fetchRoute, 400); }
+
+          function fetchRoute() {
+            var o = originEl.value.trim(), d = destEl.value.trim();
+            if (o.length < 2 || d.length < 2) return;
+            if (o === origO && d === origD) return;
+            routeLoad.classList.add('active'); hide(routeDetail); hide(routeErr);
+            fetch('/api/route-info?' + new URLSearchParams({ origin: o, destination: d }))
+              .then(function (r) { return r.json().then(function (data) { if (!r.ok) throw new Error(data.error); return data; }); })
+              .then(function (data) {
+                autoDistEl.value = data.distance; distHidden.value = data.distance;
+                gradDisp.value = (data.gradient >= 0 ? '+' : '') + data.gradient + '%';
+                elevDisp.value = '\u2191' + data.elevationGain + 'm \u2193' + data.elevationLoss + 'm';
+                var mp = ((data.gradientModifier - 1) * 100).toFixed(1);
+                modDisp.value = data.gradientModifier.toFixed(3) + 'x (' + (data.gradientModifier >= 1 ? '+' : '') + mp + '%)';
+                gradHidden.value = data.gradient; gainHidden.value = data.elevationGain;
+                lossHidden.value = data.elevationLoss; modHidden.value = data.gradientModifier;
+                origO = o; origD = d; routeLoad.classList.remove('active'); show(routeDetail); updatePreview();
+              })
+              .catch(function (err) { routeLoad.classList.remove('active'); show(routeDetail); show(routeErr); routeErr.textContent = err.message; });
+          }
+
+          function getEF() {
+            var vo = vehSelect.options[vehSelect.selectedIndex];
+            if (vo && vo.value && vo.getAttribute('data-co2')) { var c = parseFloat(vo.getAttribute('data-co2')); if (c > 0) return c; }
+            var mo = modeSelect.options[modeSelect.selectedIndex];
+            return mo && mo.getAttribute('data-factor') ? parseFloat(mo.getAttribute('data-factor')) || 0 : 0;
+          }
+          function updatePreview() {
+            var dist = parseFloat(manDistEl.value) || parseFloat(distHidden.value) || 0;
+            var factor = getEmissionFactor();
+            var mod = parseFloat(modHidden.value) || 1.0;
+
+            // Check if selected mode uses gradient
+            var mOpt = modeSelect.options[modeSelect.selectedIndex];
+            var usesGrad = mOpt && mOpt.getAttribute('data-gradient') === 'true';
+
+            // If a vehicle is selected, gradient always applies (it's a car)
+            var vOpt = vehSelect.options[vehSelect.selectedIndex];
+            if (vOpt && vOpt.value) usesGrad = true;
+
+            // If mode doesn't use gradient, force modifier to 1.0
+            var effectiveMod = usesGrad ? mod : 1.0;
+
+            if (dist > 0 && factor > 0) {
+              var base = Math.round(dist * factor);
+              var adj = Math.round(base * effectiveMod);
+              baseEmEl.textContent = base + 'g (flat)';
+              adjEmEl.textContent = adj;
+              show(emPreview);
+            } else {
+              hide(emPreview);
+            }
+
+            // Show/hide gradient info label
+            var routePanel = document.getElementById('routePanel');
+            if (routePanel && !routePanel.classList.contains('hidden')) {
+              var gradNote = document.getElementById('gradientNote');
+              if (!gradNote) {
+                gradNote = document.createElement('div');
+                gradNote.id = 'gradientNote';
+                gradNote.style.cssText = 'font-size:0.82rem;padding:0.5rem 0;margin-top:0.5rem;border-top:1px solid rgba(76,175,80,0.1);';
+                document.getElementById('routeDetails').appendChild(gradNote);
+              }
+              if (usesGrad) {
+                gradNote.innerHTML = '<span style="color:#4CAF50;">&#10003;</span> Gradient modifier <strong>applied</strong> — this is a road vehicle.';
+                gradNote.style.color = '#4CAF50';
+              } else {
+                gradNote.innerHTML = '<span style="color:#FFB74D;">&#9888;</span> Gradient modifier <strong>not applied</strong> — this mode is not affected by road gradient.';
+                gradNote.style.color = '#FFB74D';
+              }
+            }
+          }
+          modeSelect.addEventListener('change', updatePreview);
+          vehSelect.addEventListener('change', updatePreview);
+          manDistEl.addEventListener('input', updatePreview);
+          updatePreview();
+
+          // ── Geolocation ───────────────────────────────────────────
+          function geolocate(el) {
+            if (!navigator.geolocation) { alert('Geolocation not supported'); return; }
+            el.value = 'Locating...';
+            navigator.geolocation.getCurrentPosition(function (pos) {
+              fetch('/api/reverse-geocode?lat=' + pos.coords.latitude.toFixed(6) + '&lng=' + pos.coords.longitude.toFixed(6))
+                .then(function (r) { return r.json(); }).then(function (d) { el.value = d.label || pos.coords.latitude + ',' + pos.coords.longitude; triggerRouteCalc(); })
+                .catch(function () { el.value = pos.coords.latitude + ',' + pos.coords.longitude; triggerRouteCalc(); });
+            }, function () { el.value = ''; alert('Location unavailable'); }, { enableHighAccuracy: true, timeout: 10000 });
+          }
+          document.getElementById('locateOriginBtn').addEventListener('click', function () { geolocate(originEl); });
+          document.getElementById('locateDestBtn').addEventListener('click', function () { geolocate(destEl); });
+        })();
+      </script>
+
+      <%- include('../partials/footer') %>

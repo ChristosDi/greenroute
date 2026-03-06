@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GreenRoute</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+<% if (user) { %>
+  <!-- Mobile Header -->
+  <div class="mobile-header">
+    <button class="hamburger" onclick="toggleSidebar()" aria-label="Menu">&#9776;</button>
+    <span style="font-family:var(--font-heading);font-weight:600;background:linear-gradient(135deg,#00d4aa,#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">GreenRoute</span>
+    <span></span>
+  </div>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+  <div class="app-wrapper">
+    <!-- Sidebar -->
+    <nav class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <h2>&#127807; GreenRoute</h2>
+        <small>Sustainable Transport</small>
+      </div>
+
+      <div class="sidebar-nav">
+        <% if (user.role !=='admin' ) { %>
+          <!-- Regular user navigation -->
+          <div class="nav-section">
+            <div class="nav-section-title">Main</div>
+            <a href="/dashboard" class="nav-link <%= currentPath === '/dashboard' ? 'active' : '' %>">
+              <span class="nav-icon">&#127968;</span> Dashboard
+            </a>
+            <a href="/journeys" class="nav-link <%= currentPath.startsWith('/journeys') ? 'active' : '' %>">
+              <span class="nav-icon">&#128663;</span> Journeys
+            </a>
+            <a href="/my-vehicles" class="nav-link <%= currentPath.startsWith('/my-vehicles') ? 'active' : '' %>">
+              <span class="nav-icon">&#128664;</span> My Vehicles
+            </a>
+          </div>
+      
+          <div class="nav-section">
+            <div class="nav-section-title">Explore</div>
+            <a href="/vehicles" class="nav-link <%= currentPath.startsWith('/vehicles') ? 'active' : '' %>">
+              <span class="nav-icon">&#128218;</span> Euro 6 Database
+            </a>
+          </div>
+      
+          <div class="nav-section">
+            <div class="nav-section-title">Account</div>
+            <a href="/profile" class="nav-link <%= currentPath === '/profile' ? 'active' : '' %>">
+              <span class="nav-icon">&#128100;</span> Profile
+            </a>
+            <a href="/auth/logout" class="nav-link">
+              <span class="nav-icon">&#128682;</span> Logout
+            </a>
+          </div>
+          <% } else { %>
+            <!-- Admin-only navigation -->
+            <div class="nav-section">
+              <div class="nav-section-title">Admin Panel</div>
+              <a href="/admin" class="nav-link <%= currentPath === '/admin' ? 'active' : '' %>">
+                <span class="nav-icon">&#128202;</span> Dashboard
+              </a>
+              <a href="/admin/users"
+                class="nav-link <%= currentPath === '/admin/users' || currentPath.startsWith('/admin/users/') ? 'active' : '' %>">
+                <span class="nav-icon">&#128101;</span> Users
+              </a>
+              <a href="/admin/transport-modes"
+                class="nav-link <%= currentPath === '/admin/transport-modes' ? 'active' : '' %>">
+                <span class="nav-icon">&#9881;</span> Transport Modes
+              </a>
+            </div>
+      
+            <div class="nav-section">
+              <div class="nav-section-title">Explore</div>
+              <a href="/vehicles" class="nav-link <%= currentPath.startsWith('/vehicles') ? 'active' : '' %>">
+                <span class="nav-icon">&#128218;</span> Euro 6 Database
+              </a>
+            </div>
+      
+            <div class="nav-section">
+              <div class="nav-section-title">Account</div>
+              <a href="/auth/logout" class="nav-link">
+                <span class="nav-icon">&#128682;</span> Logout
+              </a>
+            </div>
+            <% } %>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-user">
+          <div class="user-avatar"><%= user.name ? user.name.charAt(0).toUpperCase() : 'U' %></div>
+          <div class="user-info">
+            <div class="user-name"><%= user.name %></div>
+            <div class="user-role"><%= user.role %></div>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+<% } else { %>
+  <!-- No sidebar for auth pages -->
+<% } %>

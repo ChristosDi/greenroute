@@ -1,0 +1,501 @@
+<%- include('../partials/header') %>
+
+  <div class="page-header">
+    <h1>Log a New Journey</h1>
+    <a href="/journeys" class="btn btn-secondary btn-sm">Back to journeys</a>
+  </div>
+
+  <% if (error) { %>
+    <div class="alert alert-danger">
+      <%= error %>
+    </div>
+    <% } %>
+
+      <form action="/journeys" method="POST" id="journeyForm">
+        <div class="card mb-2">
+          <h3 class="mb-1">Route</h3>
+
+          <!-- Origin with autocomplete -->
+          <div class="form-group">
+            <label for="origin">Origin</label>
+            <div class="input-with-btn">
+              <div class="autocomplete-wrap" style="flex:1;">
+                <input type="text" id="origin" name="origin" class="form-control"
+                  placeholder="Start typing a city or address..." required autocomplete="off">
+                <div class="autocomplete-list" id="originList"></div>
+              </div>
+              <button type="button" class="btn-locate" id="locateOriginBtn" title="Use my location">&#128205;</button>
+            </div>
+          </div>
+
+          <!-- Destination with autocomplete -->
+          <div class="form-group">
+            <label for="destination">Destination</label>
+            <div class="input-with-btn">
+              <div class="autocomplete-wrap" style="flex:1;">
+                <input type="text" id="destination" name="destination" class="form-control"
+                  placeholder="Start typing a city or address..." required autocomplete="off">
+                <div class="autocomplete-list" id="destList"></div>
+              </div>
+              <button type="button" class="btn-locate" id="locateDestBtn" title="Use my location">&#128205;</button>
+            </div>
+          </div>
+
+          <!-- Route Info Panel -->
+          <div class="route-panel hidden" id="routePanel">
+            <h3>&#127760; Route Information</h3>
+            <div class="loading-spinner" id="routeLoading">
+              <div class="spinner"></div>
+              <span>Calculating route &amp; gradient...</span>
+            </div>
+            <div class="hidden" id="routeDetails">
+              <div class="route-grid">
+                <div class="form-group">
+                  <label>Auto Distance (km)</label>
+                  <input type="number" id="autoDistance" class="form-control" readonly step="0.01">
+                </div>
+                <div class="form-group">
+                  <label>Road Gradient</label>
+                  <input type="text" id="gradientDisplay" class="form-control" readonly>
+                </div>
+                <div class="form-group">
+                  <label>Elevation</label>
+                  <input type="text" id="elevationDisplay" class="form-control" readonly>
+                </div>
+                <div class="form-group">
+                  <label>Gradient Modifier</label>
+                  <input type="text" id="modifierDisplay" class="form-control" readonly>
+                </div>
+              </div>
+            </div>
+            <div class="hidden" id="routeError" style="color:var(--danger);font-size:0.88rem;padding:0.5rem 0;"></div>
+          </div>
+
+          <!-- Manual Distance Override -->
+          <div class="form-group">
+            <label for="manualDistance">Distance (km) <small style="color:var(--text-muted);">— auto-filled, or enter
+                manually</small></label>
+            <input type="number" id="manualDistance" name="manualDistance" class="form-control" step="0.01" min="0"
+              placeholder="Leave blank to use auto-calculated distance">
+            <div class="form-text">Override the auto-calculated distance if you know the exact value.</div>
+          </div>
+
+          <!-- Hidden route fields -->
+          <input type="hidden" id="distance" name="distance" value="0">
+          <input type="hidden" id="gradient" name="gradient" value="0">
+          <input type="hidden" id="elevationGain" name="elevationGain" value="0">
+          <input type="hidden" id="elevationLoss" name="elevationLoss" value="0">
+          <input type="hidden" id="gradientModifier" name="gradientModifier" value="1.0">
+        </div>
+
+        <div class="card mb-2">
+          <h3 class="mb-1">Emission Source</h3>
+
+          <div class="form-group">
+            <label for="transportModeId">Transport Mode</label>
+            <select id="transportModeId" name="transportModeId" class="form-control">
+              <option value="">-- Select mode --</option>
+              <% transportModes.forEach(function(mode) { %>
+                <option value="<%= mode._id %>" data-factor="<%= mode.emissionFactor %>" data-icon="<%= mode.icon %>"
+                  data-gradient="<%= mode.usesGradient %>">
+                  <%= mode.icon %>
+                    <%= mode.name %> (<%= mode.emissionFactor %> gCO&#8322;/km)
+                </option>
+                <% }) %>
+            </select>
+            <div class="form-text">Standard emission factor used if no vehicle CO&#8322; data is available.</div>
+          </div>
+
+          <div class="form-group">
+            <label for="userVehicleId">My Vehicle <span class="badge badge-teal"
+                style="margin-left:4px;">optional</span></label>
+            <select id="userVehicleId" name="userVehicleId" class="form-control">
+              <option value="">-- Use transport mode default --</option>
+              <% userVehicles.forEach(function(v) { %>
+                <option value="<%= v._id %>" data-co2="<%= v.co2 || '' %>" <%=(defaultVehicle &&
+                  v._id.toString()===defaultVehicle._id.toString()) ? 'selected' : '' %>>
+                  <%= v.nickname %> (<%= v.manufacturer %>
+                      <%= v.model %>)<%= v.co2 ? ' — ' + v.co2 + ' gCO₂/km' : '' %>
+                          <%= v.isDefault ? ' ★ Default' : '' %>
+                </option>
+                <% }) %>
+            </select>
+            <div class="form-text">If your vehicle has CO&#8322; data, it overrides the transport mode factor. <a
+                href="/my-vehicles">Manage vehicles</a></div>
+          </div>
+        </div>
+
+        <!-- Emissions Preview -->
+        <div class="emissions-preview hidden" id="emissionsPreview">
+          <span class="em-label">Estimated:</span>
+          <span class="em-base" id="baseEmVal">0g</span>
+          <span class="em-arrow">&#8594;</span>
+          <span class="em-adjusted" id="adjEmVal">0</span>
+          <span class="em-unit">gCO&#8322; (gradient-adjusted)</span>
+        </div>
+
+        <div class="btn-group">
+          <button type="submit" class="btn btn-primary" id="submitBtn">Log Journey</button>
+          <a href="/journeys" class="btn btn-secondary">Cancel</a>
+        </div>
+      </form>
+
+      <script>
+        (function () {
+          // ═══════════════════════════════════════════════════════════
+          //  AUTOCOMPLETE ENGINE
+          //  Works like Google Places: user types → debounced fetch
+          //  → dropdown of suggestions → click to select → fills field
+          //  → triggers route calculation
+          // ═══════════════════════════════════════════════════════════
+
+          /**
+           * setupAutocomplete(inputEl, listEl)
+           *
+           * Attaches autocomplete behaviour to a text input:
+           *  1. On each keystroke (debounced 300ms), calls /api/autocomplete?text=...
+           *  2. Server proxies to ORS Pelias autocomplete (keeps API key hidden)
+           *  3. Renders a dropdown of up to 5 suggestions
+           *  4. Keyboard navigation: ArrowDown/Up to highlight, Enter to select
+           *  5. Click a suggestion to populate the input
+           *  6. After selection, triggers route calculation if both fields are filled
+           */
+          function setupAutocomplete(inputEl, listEl) {
+            var debounceTimer = null;     // Prevents firing on every keystroke
+            var highlightIndex = -1;      // Currently highlighted item (-1 = none)
+            var currentItems = [];        // Cache of current suggestion data
+            var suppressNextInput = false;// Prevents re-fetching after we programmatically set the value
+
+            // ── Keystroke handler: debounce then fetch suggestions ──
+            inputEl.addEventListener('input', function () {
+              // If we just set the value from a selection, don't re-fetch
+              if (suppressNextInput) { suppressNextInput = false; return; }
+
+              clearTimeout(debounceTimer);
+              var text = inputEl.value.trim();
+
+              // Need at least 2 chars for meaningful results
+              if (text.length < 2) {
+                hideList(listEl);
+                return;
+              }
+
+              // Wait 300ms after user stops typing before calling the API
+              // This prevents hammering the server on fast typists
+              debounceTimer = setTimeout(function () {
+                fetchSuggestions(text, listEl);
+              }, 500);
+            });
+
+            // ── Fetch suggestions from our server-side proxy ────────
+            function fetchSuggestions(text, listEl) {
+              fetch('/api/autocomplete?text=' + encodeURIComponent(text))
+                .then(function (r) { return r.json(); })
+                .then(function (suggestions) {
+                  currentItems = suggestions;
+                  highlightIndex = -1;
+                  renderList(suggestions, listEl);
+                })
+                .catch(function () {
+                  hideList(listEl);
+                });
+            }
+
+            // ── Render the dropdown list of suggestions ─────────────
+            function renderList(suggestions, listEl) {
+              // No results: show a helpful message
+              if (suggestions.length === 0) {
+                listEl.innerHTML = '<div class="autocomplete-item"><span class="ac-no-results">No locations found</span></div>';
+                listEl.classList.add('visible');
+                return;
+              }
+
+              // Build HTML for each suggestion
+              // Icon (pin) + place name + region/county beneath
+              var html = '';
+              suggestions.forEach(function (s, i) {
+                // Build the secondary line: region, county, country
+                var secondary = [s.region, s.county, s.country].filter(Boolean).join(', ');
+
+                html += '<div class="autocomplete-item" data-index="' + i + '">'
+                  + '<span class="ac-icon">&#128205;</span>'
+                  + '<div class="ac-text">'
+                  + '<div class="ac-name">' + escapeHtml(s.name) + '</div>'
+                  + (secondary ? '<div class="ac-region">' + escapeHtml(secondary) + '</div>' : '')
+                  + '</div>'
+                  + '</div>';
+              });
+
+              listEl.innerHTML = html;
+              listEl.classList.add('visible');
+
+              // ── Click handler on each suggestion ──────────────────
+              listEl.querySelectorAll('.autocomplete-item').forEach(function (item) {
+                item.addEventListener('mousedown', function (e) {
+                  // mousedown instead of click so it fires before input blur
+                  e.preventDefault();
+                  var idx = parseInt(item.getAttribute('data-index'));
+                  selectItem(idx);
+                });
+              });
+            }
+
+            // ── Select a suggestion: fill the input, close dropdown ─
+            function selectItem(index) {
+              if (index < 0 || index >= currentItems.length) return;
+
+              var selected = currentItems[index];
+
+              // Set the input value to the full label
+              suppressNextInput = true;
+              inputEl.value = selected.label;
+
+              hideList(listEl);
+
+              // Trigger route calculation now that we have a proper location
+              triggerRouteCalc();
+            }
+
+            // ── Keyboard navigation ─────────────────────────────────
+            inputEl.addEventListener('keydown', function (e) {
+              var items = listEl.querySelectorAll('.autocomplete-item[data-index]');
+              if (!items.length) return;
+
+              if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                highlightIndex = Math.min(highlightIndex + 1, items.length - 1);
+                updateHighlight(items);
+              } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                highlightIndex = Math.max(highlightIndex - 1, 0);
+                updateHighlight(items);
+              } else if (e.key === 'Enter' && highlightIndex >= 0) {
+                e.preventDefault();
+                selectItem(highlightIndex);
+              } else if (e.key === 'Escape') {
+                hideList(listEl);
+              }
+            });
+
+            // ── Visual highlight for keyboard navigation ────────────
+            function updateHighlight(items) {
+              items.forEach(function (item, i) {
+                if (i === highlightIndex) {
+                  item.classList.add('highlighted');
+                } else {
+                  item.classList.remove('highlighted');
+                }
+              });
+            }
+
+            // ── Close dropdown when clicking outside ────────────────
+            inputEl.addEventListener('blur', function () {
+              // Small delay so click events on the list can fire first
+              setTimeout(function () { hideList(listEl); }, 200);
+            });
+
+            // ── Re-open on focus if there's text ────────────────────
+            inputEl.addEventListener('focus', function () {
+              if (inputEl.value.trim().length >= 2 && currentItems.length > 0) {
+                renderList(currentItems, listEl);
+              }
+            });
+          }
+
+          // ── Utility: hide the dropdown ────────────────────────────
+          function hideList(listEl) {
+            listEl.classList.remove('visible');
+          }
+
+          // ── Utility: escape HTML to prevent XSS ───────────────────
+          function escapeHtml(str) {
+            var div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+          }
+
+          // ═══════════════════════════════════════════════════════════
+          //  INITIALISE AUTOCOMPLETE ON BOTH FIELDS
+          // ═══════════════════════════════════════════════════════════
+
+          var originEl = document.getElementById('origin');
+          var destEl = document.getElementById('destination');
+          var originList = document.getElementById('originList');
+          var destList = document.getElementById('destList');
+
+          setupAutocomplete(originEl, originList);
+          setupAutocomplete(destEl, destList);
+
+
+          // ═══════════════════════════════════════════════════════════
+          //  ROUTE CALCULATION (same as before)
+          // ═══════════════════════════════════════════════════════════
+
+          var autoDistEl = document.getElementById('autoDistance');
+          var manDistEl = document.getElementById('manualDistance');
+          var distHidden = document.getElementById('distance');
+          var routePanel = document.getElementById('routePanel');
+          var routeLoad = document.getElementById('routeLoading');
+          var routeDetail = document.getElementById('routeDetails');
+          var routeErr = document.getElementById('routeError');
+          var gradHidden = document.getElementById('gradient');
+          var gainHidden = document.getElementById('elevationGain');
+          var lossHidden = document.getElementById('elevationLoss');
+          var modHidden = document.getElementById('gradientModifier');
+          var gradDisp = document.getElementById('gradientDisplay');
+          var elevDisp = document.getElementById('elevationDisplay');
+          var modDisp = document.getElementById('modifierDisplay');
+          var emPreview = document.getElementById('emissionsPreview');
+          var baseEmEl = document.getElementById('baseEmVal');
+          var adjEmEl = document.getElementById('adjEmVal');
+          var modeSelect = document.getElementById('transportModeId');
+          var vehSelect = document.getElementById('userVehicleId');
+
+          function show(el) { el.classList.remove('hidden'); }
+          function hide(el) { el.classList.add('hidden'); }
+
+          // Called after autocomplete selection or geolocation
+          var routeDebounce = null;
+          function triggerRouteCalc() {
+            clearTimeout(routeDebounce);
+            routeDebounce = setTimeout(fetchRoute, 400);
+          }
+
+          function fetchRoute() {
+            var o = originEl.value.trim();
+            var d = destEl.value.trim();
+            if (o.length < 2 || d.length < 2) { hide(routePanel); return; }
+
+            show(routePanel);
+            routeLoad.classList.add('active');
+            hide(routeDetail);
+            hide(routeErr);
+
+            var params = new URLSearchParams({ origin: o, destination: d });
+            fetch('/api/route-info?' + params)
+              .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error); return d; }); })
+              .then(function (data) {
+                autoDistEl.value = data.distance;
+                distHidden.value = data.distance;
+
+                var gs = data.gradient >= 0 ? '+' + data.gradient + '%' : data.gradient + '%';
+                gradDisp.value = gs;
+                elevDisp.value = '\u2191' + data.elevationGain + 'm  \u2193' + data.elevationLoss + 'm';
+                var mp = ((data.gradientModifier - 1) * 100).toFixed(1);
+                modDisp.value = data.gradientModifier.toFixed(3) + 'x (' + (data.gradientModifier >= 1 ? '+' : '') + mp + '%)';
+
+                gradHidden.value = data.gradient;
+                gainHidden.value = data.elevationGain;
+                lossHidden.value = data.elevationLoss;
+                modHidden.value = data.gradientModifier;
+
+                routeLoad.classList.remove('active');
+                show(routeDetail);
+                updatePreview();
+              })
+              .catch(function (err) {
+                routeLoad.classList.remove('active');
+                show(routeErr);
+                routeErr.textContent = err.message;
+              });
+          }
+
+          // ── Emissions preview ─────────────────────────────────────
+          function getEmissionFactor() {
+            var vOpt = vehSelect.options[vehSelect.selectedIndex];
+            if (vOpt && vOpt.value && vOpt.getAttribute('data-co2')) {
+              var vco2 = parseFloat(vOpt.getAttribute('data-co2'));
+              if (vco2 > 0) return vco2;
+            }
+            var mOpt = modeSelect.options[modeSelect.selectedIndex];
+            if (mOpt && mOpt.getAttribute('data-factor')) {
+              return parseFloat(mOpt.getAttribute('data-factor')) || 0;
+            }
+            return 0;
+          }
+
+          function updatePreview() {
+            var dist = parseFloat(manDistEl.value) || parseFloat(distHidden.value) || 0;
+            var factor = getEmissionFactor();
+            var mod = parseFloat(modHidden.value) || 1.0;
+
+            // Check if selected mode uses gradient
+            var mOpt = modeSelect.options[modeSelect.selectedIndex];
+            var usesGrad = mOpt && mOpt.getAttribute('data-gradient') === 'true';
+
+            // If a vehicle is selected, gradient always applies (it's a car)
+            var vOpt = vehSelect.options[vehSelect.selectedIndex];
+            if (vOpt && vOpt.value) usesGrad = true;
+
+            // If mode doesn't use gradient, force modifier to 1.0
+            var effectiveMod = usesGrad ? mod : 1.0;
+
+            if (dist > 0 && factor > 0) {
+              var base = Math.round(dist * factor);
+              var adj = Math.round(base * effectiveMod);
+              baseEmEl.textContent = base + 'g (flat)';
+              adjEmEl.textContent = adj;
+              show(emPreview);
+            } else {
+              hide(emPreview);
+            }
+
+            // Show/hide gradient info label
+            var routePanel = document.getElementById('routePanel');
+            if (routePanel && !routePanel.classList.contains('hidden')) {
+              var gradNote = document.getElementById('gradientNote');
+              if (!gradNote) {
+                gradNote = document.createElement('div');
+                gradNote.id = 'gradientNote';
+                gradNote.style.cssText = 'font-size:0.82rem;padding:0.5rem 0;margin-top:0.5rem;border-top:1px solid rgba(76,175,80,0.1);';
+                document.getElementById('routeDetails').appendChild(gradNote);
+              }
+              if (usesGrad) {
+                gradNote.innerHTML = '<span style="color:#4CAF50;">&#10003;</span> Gradient modifier <strong>applied</strong> — this is a road vehicle.';
+                gradNote.style.color = '#4CAF50';
+              } else {
+                gradNote.innerHTML = '<span style="color:#FFB74D;">&#9888;</span> Gradient modifier <strong>not applied</strong> — this mode is not affected by road gradient.';
+                gradNote.style.color = '#FFB74D';
+              }
+            }
+          }
+
+          modeSelect.addEventListener('change', updatePreview);
+          vehSelect.addEventListener('change', updatePreview);
+          manDistEl.addEventListener('input', updatePreview);
+
+
+          // ═══════════════════════════════════════════════════════════
+          //  GEOLOCATION (hardware GPS button)
+          // ═══════════════════════════════════════════════════════════
+
+          function geolocate(targetInput) {
+            if (!navigator.geolocation) { alert('Geolocation not supported'); return; }
+            targetInput.value = 'Locating...';
+            navigator.geolocation.getCurrentPosition(
+              function (pos) {
+                var lat = pos.coords.latitude.toFixed(6);
+                var lng = pos.coords.longitude.toFixed(6);
+                fetch('/api/reverse-geocode?lat=' + lat + '&lng=' + lng)
+                  .then(function (r) { return r.json(); })
+                  .then(function (data) {
+                    targetInput.value = data.label || (lat + ', ' + lng);
+                    triggerRouteCalc();
+                  })
+                  .catch(function () {
+                    targetInput.value = lat + ', ' + lng;
+                    triggerRouteCalc();
+                  });
+              },
+              function () { targetInput.value = ''; alert('Location access denied or unavailable'); },
+              { enableHighAccuracy: true, timeout: 10000 }
+            );
+          }
+
+          document.getElementById('locateOriginBtn').addEventListener('click', function () { geolocate(originEl); });
+          document.getElementById('locateDestBtn').addEventListener('click', function () { geolocate(destEl); });
+
+        })();
+      </script>
+
+      <%- include('../partials/footer') %>

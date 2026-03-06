@@ -1,0 +1,90 @@
+<%- include('../partials/header') %>
+
+<div class="page-header">
+  <h1>Admin Dashboard</h1>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card teal">
+    <div class="stat-label">Total Users</div>
+    <div class="stat-value"><%= totalUsers %></div>
+  </div>
+  <div class="stat-card purple">
+    <div class="stat-label">Total Journeys</div>
+    <div class="stat-value"><%= totalJourneys %></div>
+  </div>
+  <div class="stat-card blue">
+    <div class="stat-label">Euro 6 Vehicles</div>
+    <div class="stat-value"><%= totalVehicles.toLocaleString() %></div>
+  </div>
+  <div class="stat-card warning">
+    <div class="stat-label">Transport Modes</div>
+    <div class="stat-value"><%= totalModes %></div>
+  </div>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card teal">
+    <div class="stat-label">Total CO&#8322;</div>
+    <div class="stat-value">
+      <%= stats.totalEmissions >= 1000000 ? (stats.totalEmissions/1000000).toFixed(1) : stats.totalEmissions >= 1000 ? (stats.totalEmissions/1000).toFixed(1) : Math.round(stats.totalEmissions) %>
+      <span class="stat-unit"><%= stats.totalEmissions >= 1000000 ? 'tonnes' : stats.totalEmissions >= 1000 ? 'kg' : 'g' %></span>
+    </div>
+  </div>
+  <div class="stat-card purple">
+    <div class="stat-label">Avg CO&#8322; / Journey</div>
+    <div class="stat-value"><%= Math.round(stats.avgEmissions || 0) %><span class="stat-unit">g</span></div>
+  </div>
+  <div class="stat-card blue">
+    <div class="stat-label">Total Distance</div>
+    <div class="stat-value"><%= Math.round(stats.totalDistance || 0).toLocaleString() %><span class="stat-unit">km</span></div>
+  </div>
+  <div class="stat-card warning">
+    <div class="stat-label">User Vehicles</div>
+    <div class="stat-value"><%= totalUserVehicles %></div>
+  </div>
+</div>
+
+<!-- Top Modes -->
+<% if (topModes.length > 0) { %>
+<div class="card mb-2">
+  <h3 class="mb-1">Top Transport Modes</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Mode</th><th>Journeys</th><th>Total CO&#8322;</th></tr></thead>
+      <tbody>
+        <% topModes.forEach(function(m) { %>
+          <tr>
+            <td><%= m._id ? m._id.icon + ' ' + m._id.name : 'Unknown' %></td>
+            <td><%= m.count %></td>
+            <td><%= m.totalEmissions >= 1000 ? (m.totalEmissions/1000).toFixed(1) + ' kg' : m.totalEmissions + ' g' %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<% } %>
+
+<!-- Recent Journeys -->
+<div class="card">
+  <h3 class="mb-1">Recent Journeys (all users)</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>User</th><th>Route</th><th>Distance</th><th>CO&#8322;</th><th>Date</th></tr></thead>
+      <tbody>
+        <% recentJourneys.forEach(function(j) { %>
+          <tr>
+            <td><%= j.userId ? j.userId.name : 'Deleted' %></td>
+            <td><%= j.origin %> &#8594; <%= j.destination %></td>
+            <td><%= j.distance %> km</td>
+            <td style="color:var(--aurora-teal);font-weight:600;"><%= j.emissions %> g</td>
+            <td><%= new Date(j.createdAt).toLocaleDateString('en-GB') %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

@@ -1,0 +1,212 @@
+<%- include('../partials/header') %>
+
+  <div class="page-header">
+    <h1>Manage Users</h1>
+    <span class="badge badge-teal">
+      <%= users.length %> users
+    </span>
+  </div>
+
+  <!-- ── Filter & Sort Controls ──────────────────────────────── -->
+  <div class="card mb-2">
+    <h3 class="mb-1">Filter &amp; Sort</h3>
+    <form action="/admin/users" method="GET">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Search Name</label>
+          <input type="text" name="search" class="form-control" placeholder="Search by name..."
+            value="<%= (query && query.search) || '' %>">
+        </div>
+        <div class="form-group">
+          <label>Role</label>
+          <select name="role" class="form-control">
+            <option value="">All roles</option>
+            <option value="user" <%=(query && query.role==='user' ) ? 'selected' : '' %>>User</option>
+            <option value="admin" <%=(query && query.role==='admin' ) ? 'selected' : '' %>>Admin</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Status</label>
+          <select name="status" class="form-control">
+            <option value="">All statuses</option>
+            <option value="active" <%=(query && query.status==='active' ) ? 'selected' : '' %>>Active</option>
+            <option value="suspended" <%=(query && query.status==='suspended' ) ? 'selected' : '' %>>Suspended</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Sort By</label>
+          <select name="sortBy" class="form-control">
+            <option value="name" <%=(query && query.sortBy==='name' ) ? 'selected' : '' %>>Name</option>
+            <option value="emissions" <%=(query && query.sortBy==='emissions' ) ? 'selected' : '' %>>Total CO&#8322;
+            </option>
+            <option value="journeys" <%=(query && query.sortBy==='journeys' ) ? 'selected' : '' %>>Journey Count
+            </option>
+            <option value="date" <%=(query && query.sortBy==='date' ) ? 'selected' : '' %>>Registration Date</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Min CO&#8322; (kg)</label>
+          <input type="number" name="minCo2" class="form-control" step="0.1" min="0" placeholder="0"
+            value="<%= (query && query.minCo2) || '' %>">
+        </div>
+        <div class="form-group">
+          <label>Max CO&#8322; (kg)</label>
+          <input type="number" name="maxCo2" class="form-control" step="0.1" min="0" placeholder="No limit"
+            value="<%= (query && query.maxCo2) || '' %>">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Min Journeys</label>
+          <input type="number" name="minJourneys" class="form-control" min="0" placeholder="0"
+            value="<%= (query && query.minJourneys) || '' %>">
+        </div>
+        <div class="form-group">
+          <label>Max Journeys</label>
+          <input type="number" name="maxJourneys" class="form-control" min="0" placeholder="No limit"
+            value="<%= (query && query.maxJourneys) || '' %>">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Direction</label>
+          <select name="sortDir" class="form-control">
+            <option value="asc" <%=(query && query.sortDir==='asc' ) ? 'selected' : '' %>>Ascending &#8593;</option>
+            <option value="desc" <%=(query && query.sortDir==='desc' ) ? 'selected' : '' %>>Descending &#8595;</option>
+          </select>
+        </div>
+        <div class="form-group" style="display:flex;align-items:flex-end;">
+          <div class="btn-group">
+            <button type="submit" class="btn btn-primary btn-sm">Apply Filters</button>
+            <a href="/admin/users" class="btn btn-secondary btn-sm">Reset</a>
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- ── Users Table ─────────────────────────────────────────── -->
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Status</th>
+            <th>Journeys</th>
+            <th>Total CO&#8322;</th>
+            <th>Registered</th>
+            <th>Last Updated</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (users.length===0) { %>
+            <tr>
+              <td colspan="9" style="text-align:center;padding:2rem;color:rgba(230,237,243,0.55);">No users match your
+                filters</td>
+            </tr>
+            <% } %>
+              <% users.forEach(function(u) { %>
+                <tr style="<%= u.status === 'suspended' ? 'opacity:0.55;' : '' %>">
+                  <td style="font-weight:500;color:#f1f5f9;">
+                    <div style="display:flex;align-items:center;gap:0.5rem;">
+                      <div class="user-avatar"
+                        style="width:28px;height:28px;font-size:0.7rem;<%= u.status === 'suspended' ? 'background:linear-gradient(135deg,#ef4444,#b91c1c);' : '' %>">
+                        <%= u.name.charAt(0).toUpperCase() %>
+                      </div>
+                      <%= u.name %>
+                    </div>
+                  </td>
+                  <td>
+                    <%= u.email %>
+                  </td>
+                  <td>
+                    <span class="badge <%= u.role === 'admin' ? 'badge-purple' : 'badge-default' %>">
+                      <%= u.role %>
+                    </span>
+                  </td>
+                  <td>
+                    <% if (u.status==='suspended' ) { %>
+                      <span class="badge" style="background:rgba(239,68,68,0.15);color:#ef4444;">Suspended</span>
+                      <% } else { %>
+                        <span class="badge" style="background:rgba(76,175,80,0.15);color:#4CAF50;">Active</span>
+                        <% } %>
+                  </td>
+                  <td>
+                    <%= u.journeyCount %>
+                  </td>
+                  <td style="color:#4CAF50;font-weight:600;">
+                    <%= u.totalEmissions>= 1000 ? (u.totalEmissions / 1000).toFixed(1) + ' kg' : u.totalEmissions + ' g'
+                      %>
+                  </td>
+                  <td>
+                    <div>
+                      <%= new Date(u.createdAt).toLocaleDateString('en-GB', { day:'2-digit', month:'short',
+                        year:'numeric' }) %>
+                    </div>
+                    <div style="font-size:0.72rem;color:rgba(230,237,243,0.45);">
+                      <%= new Date(u.createdAt).toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' }) %>
+                    </div>
+                  </td>
+                  <td>
+                    <% if (u.updatedAt && u.updatedAt.toString() !==u.createdAt.toString()) { %>
+                      <div>
+                        <%= new Date(u.updatedAt).toLocaleDateString('en-GB', { day:'2-digit', month:'short',
+                          year:'numeric' }) %>
+                      </div>
+                      <div style="font-size:0.72rem;color:rgba(230,237,243,0.45);">
+                        <%= new Date(u.updatedAt).toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' }) %>
+                      </div>
+                      <% } else { %>
+                        <span style="color:rgba(230,237,243,0.35);">—</span>
+                        <% } %>
+                  </td>
+                  <td>
+                    <div style="display:flex;gap:0.3rem;flex-wrap:wrap;">
+                      <a href="/admin/users/<%= u._id %>/journeys" class="btn btn-secondary btn-xs">&#128065;
+                        Journeys</a>
+                      <!-- Role change -->
+                      <form action="/admin/users/<%= u._id %>/role" method="POST" style="display:inline;">
+                        <select name="role" onchange="this.form.submit()" class="form-control"
+                          style="padding:0.2rem 0.4rem;font-size:0.75rem;width:auto;display:inline-block;">
+                          <option value="user" <%=u.role==='user' ?'selected':'' %>>user</option>
+                          <option value="admin" <%=u.role==='admin' ?'selected':'' %>>admin</option>
+                        </select>
+                      </form>
+                      <!-- Suspend / Activate -->
+                      <form action="/admin/users/<%= u._id %>/suspend" method="POST" style="display:inline;">
+                        <% if (u.status==='suspended' ) { %>
+                          <button type="submit" class="btn btn-xs"
+                            style="background:rgba(76,175,80,0.12);color:#4CAF50;border:1px solid rgba(76,175,80,0.2);">Activate</button>
+                          <% } else { %>
+                            <button type="submit" class="btn btn-xs"
+                              style="background:rgba(255,167,38,0.12);color:#FFB74D;border:1px solid rgba(255,167,38,0.2);"
+                              onclick="return confirm('Suspend this user? They will be unable to log in.')">Suspend</button>
+                            <% } %>
+                      </form>
+                      <!-- Delete -->
+                      <form action="/admin/users/<%= u._id %>/delete" method="POST" style="display:inline;"
+                        onsubmit="return confirm('Delete this user and all their data? This cannot be undone.')">
+                        <button type="submit" class="btn btn-danger btn-xs">&#128465;</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+                <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <%- include('../partials/footer') %>

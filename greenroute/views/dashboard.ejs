@@ -1,0 +1,81 @@
+<%- include('partials/header') %>
+
+<div class="page-header">
+  <div>
+    <h1>Welcome back, <%= user.name.split(' ')[0] %></h1>
+    <p>Your sustainability overview</p>
+  </div>
+  <a href="/journeys/new" class="btn btn-primary">+ Log Journey</a>
+</div>
+
+<!-- Stats -->
+<div class="stats-grid">
+  <div class="stat-card teal">
+    <div class="stat-label">Total Journeys</div>
+    <div class="stat-value"><%= stats.journeyCount %></div>
+  </div>
+  <div class="stat-card purple">
+    <div class="stat-label">Total CO&#8322;</div>
+    <div class="stat-value">
+      <%= stats.totalEmissions >= 1000 ? (stats.totalEmissions / 1000).toFixed(1) : stats.totalEmissions %>
+      <span class="stat-unit"><%= stats.totalEmissions >= 1000 ? 'kg' : 'g' %></span>
+    </div>
+  </div>
+  <div class="stat-card blue">
+    <div class="stat-label">Total Distance</div>
+    <div class="stat-value">
+      <%= stats.totalDistance >= 1000 ? (stats.totalDistance / 1000).toFixed(1) : Math.round(stats.totalDistance) %>
+      <span class="stat-unit"><%= stats.totalDistance >= 1000 ? 'k km' : 'km' %></span>
+    </div>
+  </div>
+  <div class="stat-card warning">
+    <div class="stat-label">Default Vehicle</div>
+    <div class="stat-value" style="font-size:1rem;">
+      <%= defaultVehicle ? defaultVehicle.nickname : 'None set' %>
+    </div>
+  </div>
+</div>
+
+<!-- Recent Journeys -->
+<div class="card">
+  <div class="card-header">
+    <h2>Recent Journeys</h2>
+    <a href="/journeys" class="btn btn-secondary btn-sm">View all</a>
+  </div>
+
+  <% if (recentJourneys.length === 0) { %>
+    <div class="empty-state">
+      <div class="empty-icon">&#128663;</div>
+      <p>No journeys logged yet</p>
+      <a href="/journeys/new" class="btn btn-primary btn-sm">Log your first journey</a>
+    </div>
+  <% } else { %>
+    <div class="journey-list">
+      <% recentJourneys.forEach(function(j) { %>
+        <a href="/journeys/<%= j._id %>" class="journey-card">
+          <div>
+            <div class="journey-route">
+              <span class="route-dot"></span>
+              <%= j.origin %>
+              <span class="route-line"></span>
+              <span class="route-dot" style="background:var(--aurora-purple)"></span>
+              <%= j.destination %>
+            </div>
+            <div class="journey-meta">
+              <span><%= j.distance %> km</span>
+              <span><%= j.transportMode ? j.transportMode.name : 'N/A' %></span>
+              <span><%= new Date(j.date).toLocaleDateString('en-GB') %></span>
+              <% if (j.gradient) { %><span>Gradient: <%= j.gradient %>%</span><% } %>
+            </div>
+          </div>
+          <div class="journey-emissions">
+            <div class="em-value"><%= j.emissions >= 1000 ? (j.emissions/1000).toFixed(1) + 'k' : j.emissions %></div>
+            <div class="em-label">gCO&#8322;</div>
+          </div>
+        </a>
+      <% }) %>
+    </div>
+  <% } %>
+</div>
+
+<%- include('partials/footer') %>

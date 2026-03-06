@@ -1,0 +1,169 @@
+<%- include('../partials/header') %>
+
+    <div class="page-header">
+        <div>
+            <h1>
+                <%= targetUser.name %>&rsquo;s Journeys
+            </h1>
+            <p>
+                <%= targetUser.email %> &middot; <span
+                        class="badge <%= targetUser.role === 'admin' ? 'badge-purple' : 'badge-default' %>">
+                        <%= targetUser.role %>
+                    </span>
+            </p>
+        </div>
+        <a href="/admin/users" class="btn btn-secondary btn-sm">&larr; Back to Users</a>
+    </div>
+
+    <!-- ── Summary Totals ──────────────────────────────────────── -->
+    <div class="stats-grid">
+        <div class="stat-card teal">
+            <div class="stat-label">Total Journeys</div>
+            <div class="stat-value">
+                <%= totals.count %>
+            </div>
+        </div>
+        <div class="stat-card purple">
+            <div class="stat-label">Total CO&#8322;</div>
+            <div class="stat-value">
+                <%= totals.emissions>= 1000000 ? (totals.emissions / 1000000).toFixed(2) : totals.emissions >= 1000 ?
+                    (totals.emissions / 1000).toFixed(1) : totals.emissions %>
+                    <span class="stat-unit">
+                        <%= totals.emissions>= 1000000 ? 'tonnes' : totals.emissions >= 1000 ? 'kg' : 'g' %>
+                    </span>
+            </div>
+        </div>
+        <div class="stat-card blue">
+            <div class="stat-label">Total Distance</div>
+            <div class="stat-value">
+                <%= totals.distance>= 1000 ? (totals.distance / 1000).toFixed(1) : totals.distance %>
+                    <span class="stat-unit">
+                        <%= totals.distance>= 1000 ? 'k km' : 'km' %>
+                    </span>
+            </div>
+        </div>
+        <div class="stat-card warning">
+            <div class="stat-label">Avg CO&#8322; / Journey</div>
+            <div class="stat-value">
+                <%= totals.count> 0 ? Math.round(totals.emissions / totals.count) : 0 %>
+                    <span class="stat-unit">g</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Journeys Table ──────────────────────────────────────── -->
+    <div class="card">
+        <div class="card-header">
+            <h2>All Journeys</h2>
+            <span class="badge badge-default">
+                <%= totals.count %> journeys
+            </span>
+        </div>
+
+        <% if (journeys.length===0) { %>
+            <div class="empty-state">
+                <div class="empty-icon">&#128663;</div>
+                <p>This user has no journeys recorded.</p>
+            </div>
+            <% } else { %>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Date</th>
+                                <th>Origin</th>
+                                <th>Destination</th>
+                                <th>Distance</th>
+                                <th>Mode</th>
+                                <th>Vehicle</th>
+                                <th>Gradient</th>
+                                <th>Modifier</th>
+                                <th>Base CO&#8322;</th>
+                                <th>Adjusted CO&#8322;</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% journeys.forEach(function(j, index) { %>
+                                <tr>
+                                    <td style="color:var(--text-muted);">
+                                        <%= index + 1 %>
+                                    </td>
+                                    <td>
+                                        <%= new Date(j.date).toLocaleDateString('en-GB', { day:'2-digit', month:'short',
+                                            year:'numeric' }) %>
+                                    </td>
+                                    <td style="font-weight:500;color:var(--text-primary);">
+                                        <%= j.origin %>
+                                    </td>
+                                    <td style="font-weight:500;color:var(--text-primary);">
+                                        <%= j.destination %>
+                                    </td>
+                                    <td>
+                                        <%= j.distance %> km
+                                    </td>
+                                    <td>
+                                        <% if (j.transportMode) { %>
+                                            <span class="badge badge-blue">
+                                                <%= j.transportMode.icon %>
+                                                    <%= j.transportMode.name %>
+                                            </span>
+                                            <% } else { %>
+                                                <span class="badge badge-default">N/A</span>
+                                                <% } %>
+                                    </td>
+                                    <td>
+                                        <% if (j.userVehicle) { %>
+                                            <span class="badge badge-teal">
+                                                <%= j.userVehicle.nickname %>
+                                            </span>
+                                            <% } else { %>
+                                                <span style="color:var(--text-muted);">—</span>
+                                                <% } %>
+                                    </td>
+                                    <td>
+                                        <%= j.gradient %>%
+                                    </td>
+                                    <td>
+                                        <% if (j.gradientModifier !==1) { %>
+                                            <span class="badge badge-purple">
+                                                <%= j.gradientModifier %>x
+                                            </span>
+                                            <% } else { %>
+                                                <span style="color:var(--text-muted);">1.0x</span>
+                                                <% } %>
+                                    </td>
+                                    <td style="color:var(--text-muted);">
+                                        <%= j.baseEmissions %> g
+                                    </td>
+                                    <td style="color:var(--aurora-teal);font-weight:600;font-size:0.95rem;">
+                                        <%= j.emissions>= 1000 ? (j.emissions / 1000).toFixed(1) + ' kg' : j.emissions +
+                                            ' g' %>
+                                    </td>
+                                </tr>
+                                <% }) %>
+                        </tbody>
+                        <!-- ── Totals Row ──────────────────────────────────── -->
+                        <tfoot>
+                            <tr style="background:rgba(0,212,170,0.04);font-weight:600;">
+                                <td colspan="4" style="text-align:right;color:var(--text-primary);">TOTALS</td>
+                                <td style="color:var(--text-primary);">
+                                    <%= totals.distance %> km
+                                </td>
+                                <td colspan="4"></td>
+                                <td style="color:var(--text-muted);">
+                                    <%= totals.baseEmissions>= 1000 ? (totals.baseEmissions / 1000).toFixed(1) + ' kg' :
+                                        totals.baseEmissions + ' g' %>
+                                </td>
+                                <td style="color:var(--aurora-teal);font-size:1.05rem;">
+                                    <%= totals.emissions>= 1000 ? (totals.emissions / 1000).toFixed(1) + ' kg' :
+                                        totals.emissions + ' g' %>
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                <% } %>
+    </div>
+
+    <%- include('../partials/footer') %>
