@@ -1,90 +1,231 @@
 <%- include('../partials/header') %>
 
-<div class="page-header">
-  <h1>Admin Dashboard</h1>
-</div>
+  <div class="page-header">
+    <h1>Admin Dashboard</h1>
+  </div>
 
-<div class="stats-grid">
-  <div class="stat-card teal">
-    <div class="stat-label">Total Users</div>
-    <div class="stat-value"><%= totalUsers %></div>
-  </div>
-  <div class="stat-card purple">
-    <div class="stat-label">Total Journeys</div>
-    <div class="stat-value"><%= totalJourneys %></div>
-  </div>
-  <div class="stat-card blue">
-    <div class="stat-label">Euro 6 Vehicles</div>
-    <div class="stat-value"><%= totalVehicles.toLocaleString() %></div>
-  </div>
-  <div class="stat-card warning">
-    <div class="stat-label">Transport Modes</div>
-    <div class="stat-value"><%= totalModes %></div>
-  </div>
-</div>
-
-<div class="stats-grid">
-  <div class="stat-card teal">
-    <div class="stat-label">Total CO&#8322;</div>
-    <div class="stat-value">
-      <%= stats.totalEmissions >= 1000000 ? (stats.totalEmissions/1000000).toFixed(1) : stats.totalEmissions >= 1000 ? (stats.totalEmissions/1000).toFixed(1) : Math.round(stats.totalEmissions) %>
-      <span class="stat-unit"><%= stats.totalEmissions >= 1000000 ? 'tonnes' : stats.totalEmissions >= 1000 ? 'kg' : 'g' %></span>
+  <div class="stats-grid">
+    <div class="stat-card teal">
+      <div class="stat-label">Total Users</div>
+      <div class="stat-value">
+        <%= totalUsers %>
+      </div>
+    </div>
+    <div class="stat-card purple">
+      <div class="stat-label">Total Journeys</div>
+      <div class="stat-value">
+        <%= totalJourneys %>
+      </div>
+    </div>
+    <div class="stat-card blue">
+      <div class="stat-label">Euro 6 Vehicles</div>
+      <div class="stat-value">
+        <%= totalVehicles.toLocaleString() %>
+      </div>
+    </div>
+    <div class="stat-card warning">
+      <div class="stat-label">Transport Modes</div>
+      <div class="stat-value">
+        <%= totalModes %>
+      </div>
     </div>
   </div>
-  <div class="stat-card purple">
-    <div class="stat-label">Avg CO&#8322; / Journey</div>
-    <div class="stat-value"><%= Math.round(stats.avgEmissions || 0) %><span class="stat-unit">g</span></div>
-  </div>
-  <div class="stat-card blue">
-    <div class="stat-label">Total Distance</div>
-    <div class="stat-value"><%= Math.round(stats.totalDistance || 0).toLocaleString() %><span class="stat-unit">km</span></div>
-  </div>
-  <div class="stat-card warning">
-    <div class="stat-label">User Vehicles</div>
-    <div class="stat-value"><%= totalUserVehicles %></div>
-  </div>
-</div>
 
-<!-- Top Modes -->
-<% if (topModes.length > 0) { %>
-<div class="card mb-2">
-  <h3 class="mb-1">Top Transport Modes</h3>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>Mode</th><th>Journeys</th><th>Total CO&#8322;</th></tr></thead>
-      <tbody>
-        <% topModes.forEach(function(m) { %>
-          <tr>
-            <td><%= m._id ? m._id.icon + ' ' + m._id.name : 'Unknown' %></td>
-            <td><%= m.count %></td>
-            <td><%= m.totalEmissions >= 1000 ? (m.totalEmissions/1000).toFixed(1) + ' kg' : m.totalEmissions + ' g' %></td>
-          </tr>
-        <% }) %>
-      </tbody>
-    </table>
+  <div class="stats-grid">
+    <div class="stat-card teal">
+      <div class="stat-label">Total CO&#8322;</div>
+      <div class="stat-value">
+        <%= stats.totalEmissions>= 1000000 ? (stats.totalEmissions/1000000).toFixed(1) : stats.totalEmissions >= 1000 ?
+          (stats.totalEmissions/1000).toFixed(1) : Math.round(stats.totalEmissions) %>
+          <span class="stat-unit">
+            <%= stats.totalEmissions>= 1000000 ? 'tonnes' : stats.totalEmissions >= 1000 ? 'kg' : 'g' %>
+          </span>
+      </div>
+    </div>
+    <div class="stat-card purple">
+      <div class="stat-label">Avg CO&#8322; / Journey</div>
+      <div class="stat-value">
+        <%= Math.round(stats.avgEmissions || 0) %><span class="stat-unit">g</span>
+      </div>
+    </div>
+    <div class="stat-card blue">
+      <div class="stat-label">Total Distance</div>
+      <div class="stat-value">
+        <%= Math.round(stats.totalDistance || 0).toLocaleString() %><span class="stat-unit">km</span>
+      </div>
+    </div>
+    <div class="stat-card warning">
+      <div class="stat-label">User Vehicles</div>
+      <div class="stat-value">
+        <%= totalUserVehicles %>
+      </div>
+    </div>
   </div>
-</div>
-<% } %>
 
-<!-- Recent Journeys -->
-<div class="card">
-  <h3 class="mb-1">Recent Journeys (all users)</h3>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>User</th><th>Route</th><th>Distance</th><th>CO&#8322;</th><th>Date</th></tr></thead>
-      <tbody>
-        <% recentJourneys.forEach(function(j) { %>
-          <tr>
-            <td><%= j.userId ? j.userId.name : 'Deleted' %></td>
-            <td><%= j.origin %> &#8594; <%= j.destination %></td>
-            <td><%= j.distance %> km</td>
-            <td style="color:var(--aurora-teal);font-weight:600;"><%= j.emissions %> g</td>
-            <td><%= new Date(j.createdAt).toLocaleDateString('en-GB') %></td>
-          </tr>
-        <% }) %>
-      </tbody>
-    </table>
-  </div>
-</div>
+  <% if (topModes.length> 0) { %>
+    <div class="card mb-2">
+      <h3 class="mb-1">Top Transport Modes</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Mode</th>
+              <th>Journeys</th>
+              <th>Total CO&#8322;</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% topModes.forEach(function(m) { %>
+              <tr>
+                <td>
+                  <%= m._id ? m._id.icon + ' ' + m._id.name : 'Unknown' %>
+                </td>
+                <td>
+                  <%= m.count %>
+                </td>
+                <td>
+                  <%= m.totalEmissions>= 1000 ? (m.totalEmissions/1000).toFixed(1) + ' kg' : m.totalEmissions + ' g' %>
+                </td>
+              </tr>
+              <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <% } %>
 
-<%- include('../partials/footer') %>
+      <!-- ── Journey Filter & Sort ───────────────────────────────── -->
+      <div class="card mb-2">
+        <h3 class="mb-1">Filter Journeys</h3>
+        <form action="/admin" method="GET" id="journeyFilterForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Sort By</label>
+              <select name="jSortBy" class="form-control">
+                <option value="date" <%=(query && query.jSortBy==='date' ) ? 'selected' : '' %>>Date (newest)</option>
+                <option value="co2_desc" <%=(query && query.jSortBy==='co2_desc' ) ? 'selected' : '' %>>CO&#8322;
+                  (highest first)</option>
+                <option value="co2_asc" <%=(query && query.jSortBy==='co2_asc' ) ? 'selected' : '' %>>CO&#8322; (lowest
+                  first)</option>
+                <option value="dist_desc" <%=(query && query.jSortBy==='dist_desc' ) ? 'selected' : '' %>>Distance
+                  (longest first)</option>
+                <option value="dist_asc" <%=(query && query.jSortBy==='dist_asc' ) ? 'selected' : '' %>>Distance
+                  (shortest first)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Transport Mode</label>
+              <select name="jMode" class="form-control">
+                <option value="">All modes</option>
+                <% allModes.forEach(function(m) { %>
+                  <option value="<%= m._id %>" <%=(query && query.jMode===m._id.toString()) ? 'selected' : '' %>><%=
+                      m.icon %>
+                      <%= m.name %>
+                  </option>
+                  <% }) %>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Min CO&#8322; (g)</label>
+              <input type="number" name="jMinCo2" class="form-control" min="0" placeholder="0"
+                value="<%= (query && query.jMinCo2) || '' %>">
+            </div>
+            <div class="form-group">
+              <label>Max CO&#8322; (g)</label>
+              <input type="number" name="jMaxCo2" class="form-control" min="0" placeholder="No limit"
+                value="<%= (query && query.jMaxCo2) || '' %>">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Min Distance (km)</label>
+              <input type="number" name="jMinDist" class="form-control" min="0" step="0.1" placeholder="0"
+                value="<%= (query && query.jMinDist) || '' %>">
+            </div>
+            <div class="form-group">
+              <label>Max Distance (km)</label>
+              <input type="number" name="jMaxDist" class="form-control" min="0" step="0.1" placeholder="No limit"
+                value="<%= (query && query.jMaxDist) || '' %>">
+            </div>
+          </div>
+          <div class="btn-group">
+            <button type="submit" class="btn btn-primary btn-sm">Apply</button>
+            <a href="/admin" class="btn btn-secondary btn-sm">Reset</a>
+          </div>
+        </form>
+      </div>
+
+      <!-- ── Journeys Table ──────────────────────────────────────── -->
+      <div class="card">
+        <div class="card-header">
+          <h2>Journeys (all users)</h2>
+          <span class="badge badge-default">
+            <%= recentJourneys.length %> shown
+          </span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Route</th>
+                <th>Mode</th>
+                <th>Distance</th>
+                <th>CO&#8322;</th>
+                <th>Gradient</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (recentJourneys.length===0) { %>
+                <tr>
+                  <td colspan="7" style="text-align:center;padding:2rem;color:rgba(230,237,243,0.55);">No journeys match
+                    your filters</td>
+                </tr>
+                <% } %>
+                  <% recentJourneys.forEach(function(j) { %>
+                    <tr>
+                      <td>
+                        <%= j.userId ? j.userId.name : 'Deleted' %>
+                      </td>
+                      <td style="font-weight:500;color:#f1f5f9;">
+                        <%= j.origin %> &#8594; <%= j.destination %>
+                      </td>
+                      <td>
+                        <% if (j.transportMode) { %>
+                          <span class="badge badge-blue">
+                            <%= j.transportMode.icon %>
+                              <%= j.transportMode.name %>
+                          </span>
+                          <% } else { %>
+                            <span class="badge badge-default">N/A</span>
+                            <% } %>
+                      </td>
+                      <td>
+                        <%= j.distance %> km
+                      </td>
+                      <td style="color:#4CAF50;font-weight:600;">
+                        <%= j.emissions>= 1000 ? (j.emissions/1000).toFixed(1) + ' kg' : j.emissions + ' g' %>
+                      </td>
+                      <td>
+                        <% if (j.gradientModifier && j.gradientModifier !==1) { %>
+                          <span class="badge badge-purple">
+                            <%= j.gradientModifier %>x
+                          </span>
+                          <% } else { %>
+                            <span style="color:rgba(230,237,243,0.35);">—</span>
+                            <% } %>
+                      </td>
+                      <td>
+                        <%= new Date(j.createdAt).toLocaleDateString('en-GB', { day:'2-digit', month:'short' }) %>
+                      </td>
+                    </tr>
+                    <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <%- include('../partials/footer') %>

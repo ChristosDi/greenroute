@@ -5,6 +5,7 @@ var TransportMode = require("../models/TransportMode");
 var UserVehicle = require("../models/UserVehicle");
 
 // GET /admin
+// GET /admin
 exports.dashboard = async function (req, res) {
   try {
     var counts = await Promise.all([
@@ -26,12 +27,10 @@ exports.dashboard = async function (req, res) {
       },
     ]);
 
-    var recentJourneys = await Journey.find()
-      .populate("userId", "name email")
-      .populate("transportMode")
-      .sort({ createdAt: -1 })
-      .limit(10);
+    // ── All transport modes for the filter dropdown ──────────
+    var allModes = await TransportMode.find().sort({ name: 1 });
 
+    // ── Top modes chart data ────────────────────────────────
     var topModes = await Journey.aggregate([
       {
         $group: {
@@ -43,10 +42,44 @@ exports.dashboard = async function (req, res) {
       { $sort: { count: -1 } },
       { $limit: 5 },
     ]);
-
     var populatedModes = await TransportMode.populate(topModes, {
       path: "_id",
     });
+
+    // ── Journey filtering & sorting from query params ───────
+    var jSortBy = req.query.jSortBy || "date";
+    var jMode = req.query.jMode || "";
+    var jMinCo2 = parseInt(req.query.jMinCo2) || 0;
+    var jMaxCo2 = req.query.jMaxCo2 ? parseInt(req.query.jMaxCo2) : null;
+    var jMinDist = parseFloat(req.query.jMinDist) || 0;
+    var jMaxDist = req.query.jMaxDist ? parseFloat(req.query.jMaxDist) : null;
+
+    // Build journey query
+    var journeyFilter = {};
+    if (jMode) journeyFilter.transportMode = jMode;
+    if (jMinCo2 > 0) journeyFilter.emissions = { $gte: jMinCo2 };
+    if (jMaxCo2 !== null) {
+      journeyFilter.emissions = journeyFilter.emissions || {};
+      journeyFilter.emissions.$lte = jMaxCo2;
+    }
+    if (jMinDist > 0) journeyFilter.distance = { $gte: jMinDist };
+    if (jMaxDist !== null) {
+      journeyFilter.distance = journeyFilter.distance || {};
+      journeyFilter.distance.$lte = jMaxDist;
+    }
+
+    // Build sort
+    var journeySort = { createdAt: -1 }; // default: newest first
+    if (jSortBy === "co2_desc") journeySort = { emissions: -1 };
+    if (jSortBy === "co2_asc") journeySort = { emissions: 1 };
+    if (jSortBy === "dist_desc") journeySort = { distance: -1 };
+    if (jSortBy === "dist_asc") journeySort = { distance: 1 };
+
+    var recentJourneys = await Journey.find(journeyFilter)
+      .populate("userId", "name email")
+      .populate("transportMode")
+      .sort(journeySort)
+      .limit(50);
 
     res.render("admin/dashboard", {
       totalUsers: counts[0],
@@ -61,6 +94,8 @@ exports.dashboard = async function (req, res) {
       },
       recentJourneys: recentJourneys,
       topModes: populatedModes,
+      allModes: allModes,
+      query: req.query,
     });
   } catch (err) {
     console.error("Admin dashboard error:", err);
@@ -265,5 +300,109 @@ exports.deleteUser = async function (req, res) {
     res.redirect("/admin/users");
   } catch (err) {
     res.status(500).render("error", { message: "Failed to delete user" });
+  }
+};
+
+// GET /admin/journeys — view, filter, sort ALL journeys from all users
+exports.listAllJourneys = async function (req, res) {
+  try {
+    // ── Read filter/sort params ─────────────────────────────
+    var sortBy = req.query.sortBy || "date";
+    var modeFilter = req.query.mode || "";
+    var minCo2 = parseInt(req.query.minCo2) || 0;
+    var maxCo2 = req.query.maxCo2 ? parseInt(req.query.maxCo2) : null;
+    var minDist = parseFloat(req.query.minDist) || 0;
+    var maxDist = req.query.maxDist ? parseFloat(req.query.maxDist) : null;
+    var searchUser = (req.query.searchUser || "").trim();
+
+    // ── Build journey query ─────────────────────────────────
+    var journeyFilter = {};
+
+    if (modeFilter) {
+      journeyFilter.transportMode = modeFilter;
+    }
+
+    // CO2 range filter
+    if (minCo2 > 0 || maxCo2 !== null) {
+      journeyFilter.emissions = {};
+      if (minCo2 > 0) journeyFilter.emissions.$gte = minCo2;
+      if (maxCo2 !== null) journeyFilter.emissions.$lte = maxCo2;
+    }
+
+    // Distance range filter
+    if (minDist > 0 || maxDist !== null) {
+      journeyFilter.distance = {};
+      if (minDist > 0) journeyFilter.distance.$gte = minDist;
+      if (maxDist !== null) journeyFilter.distance.$lte = maxDist;
+    }
+
+    // ── Build sort ──────────────────────────────────────────
+    var journeySort = { createdAt: -1 };
+    if (sortBy === "co2_desc") journeySort = { emissions: -1 };
+    if (sortBy === "co2_asc") journeySort = { emissions: 1 };
+    if (sortBy === "dist_desc") journeySort = { distance: -1 };
+    if (sortBy === "dist_asc") journeySort = { distance: 1 };
+    if (sortBy === "date_asc") journeySort = { createdAt: 1 };
+
+    // ── Fetch journeys ──────────────────────────────────────
+    var journeys = await Journey.find(journeyFilter)
+      .populate("userId", "name email")
+      .populate("transportMode")
+      .populate("userVehicle")
+      .sort(journeySort)
+      .limit(200);
+
+    // ── Filter by user name if provided ─────────────────────
+    // Done post-query because we need the populated user name
+    if (searchUser) {
+      var regex = new RegExp(searchUser, "i");
+      journeys = journeys.filter(function (j) {
+        return j.userId && regex.test(j.userId.name);
+      });
+    }
+
+    // ── Totals for the filtered set ─────────────────────────
+    var totalEmissions = 0;
+    var totalDistance = 0;
+    journeys.forEach(function (j) {
+      totalEmissions += j.emissions || 0;
+      totalDistance += j.distance || 0;
+    });
+
+    // ── All transport modes for the filter dropdown ──────────
+    var allModes = await TransportMode.find().sort({ name: 1 });
+
+    res.render("admin/journeys", {
+      journeys: journeys,
+      allModes: allModes,
+      query: req.query,
+      totals: {
+        count: journeys.length,
+        emissions: totalEmissions,
+        distance: Math.round(totalDistance * 100) / 100,
+      },
+    });
+  } catch (err) {
+    console.error("Admin list journeys error:", err);
+    res.status(500).render("error", { message: "Failed to load journeys" });
+  }
+};
+
+// POST /admin/journeys/:id/delete — delete any journey
+exports.deleteAnyJourney = async function (req, res) {
+  try {
+    await Journey.findByIdAndDelete(req.params.id);
+    // Redirect back with existing query params preserved
+    var backUrl = "/admin/journeys";
+    if (
+      req.headers.referer &&
+      req.headers.referer.includes("/admin/journeys")
+    ) {
+      // Preserve filters by redirecting back to referer
+      backUrl = req.headers.referer;
+    }
+    res.redirect(backUrl);
+  } catch (err) {
+    res.status(500).render("error", { message: "Failed to delete journey" });
   }
 };

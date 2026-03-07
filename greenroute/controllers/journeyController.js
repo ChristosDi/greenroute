@@ -95,26 +95,49 @@ exports.createJourney = async (req, res) => {
     }
 
     // ── Determine emission factor ───────────────────────────
+    // Priority: vehicle Euro 6 CO2 → vehicle carType standard → transport mode
     var emissionFactor = 0;
     var emissionSource = "mode";
     var mode = null;
 
+    // Transport mode is mandatory
     if (transportModeId) {
       mode = await TransportMode.findById(transportModeId);
     }
 
-    // Vehicle CO2 takes priority over transport mode
+    if (!mode) {
+      var transportModes2 = await TransportMode.find({ isActive: true });
+      var userVehicles2 = await UserVehicle.find({
+        userId: req.session.userId,
+      });
+      return res.status(400).render("journeys/new", {
+        error: "Please select a transport mode",
+        transportModes: transportModes2,
+        userVehicles: userVehicles2,
+        defaultVehicle: null,
+      });
+    }
+
+    // If user selected a vehicle, try its CO2 first, then carType standard
     if (userVehicleId) {
       var userVehicle = await UserVehicle.findById(userVehicleId);
-      if (userVehicle && userVehicle.co2) {
-        emissionFactor = userVehicle.co2;
-        emissionSource = "vehicle";
+      if (userVehicle) {
+        if (userVehicle.co2 && userVehicle.co2 > 0) {
+          // Euro 6 data available
+          emissionFactor = userVehicle.co2;
+          emissionSource = "vehicle";
+        } else {
+          // No Euro 6 data — use the car type standard factor
+          emissionFactor = UserVehicle.getStandardFactor(userVehicle.carType);
+          emissionSource = "vehicle";
+        }
       }
     }
 
-    // Fall back to transport mode if no vehicle CO2
-    if (emissionFactor === 0 && mode) {
+    // Fall back to transport mode if no vehicle selected
+    if (emissionFactor === 0) {
       emissionFactor = mode.emissionFactor;
+      emissionSource = "mode";
     }
 
     // ── Gradient modifier logic ─────────────────────────────
@@ -262,7 +285,6 @@ exports.updateJourney = async (req, res) => {
       });
     }
 
-    // Determine emission factor
     var emissionFactor = 0;
     var emissionSource = "mode";
     var mode = null;
@@ -271,15 +293,23 @@ exports.updateJourney = async (req, res) => {
       mode = await TransportMode.findById(transportModeId);
     }
 
+    // Vehicle CO2 priority: Euro 6 data → carType standard → mode
     if (userVehicleId) {
       var uv = await UserVehicle.findById(userVehicleId);
-      if (uv && uv.co2) {
-        emissionFactor = uv.co2;
-        emissionSource = "vehicle";
+      if (uv) {
+        if (uv.co2 && uv.co2 > 0) {
+          emissionFactor = uv.co2;
+          emissionSource = "vehicle";
+        } else {
+          emissionFactor = UserVehicle.getStandardFactor(uv.carType);
+          emissionSource = "vehicle";
+        }
       }
     }
+
     if (emissionFactor === 0 && mode) {
       emissionFactor = mode.emissionFactor;
+      emissionSource = "mode";
     }
 
     // Gradient logic — same as create

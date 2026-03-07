@@ -1,0 +1,217 @@
+<%- include('../partials/header') %>
+
+    <div class="page-header">
+        <div>
+            <h1>All Journeys</h1>
+            <p>
+                <%= totals.count %> journeys &middot;
+                    <%= totals.distance %> km &middot;
+                        <%= totals.emissions>= 1000 ? (totals.emissions / 1000).toFixed(1) + ' kg' : totals.emissions +
+                            ' g' %> CO&#8322;
+            </p>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-2">
+        <h3 class="mb-1">Filter &amp; Sort</h3>
+        <form action="/admin/journeys" method="GET">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Search User</label>
+                    <input type="text" name="searchUser" class="form-control" placeholder="User name..."
+                        value="<%= (query && query.searchUser) || '' %>">
+                </div>
+                <div class="form-group">
+                    <label>Transport Mode</label>
+                    <select name="mode" class="form-control">
+                        <option value="">All modes</option>
+                        <% allModes.forEach(function(m) { %>
+                            <option value="<%= m._id %>" <%=(query && query.mode===m._id.toString()) ? 'selected' : ''
+                                %>>
+                                <%= m.icon %>
+                                    <%= m.name %>
+                            </option>
+                            <% }) %>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Sort By</label>
+                    <select name="sortBy" class="form-control">
+                        <option value="date" <%=(query && query.sortBy==='date' ) ? 'selected' : '' %>>Date (newest)
+                        </option>
+                        <option value="date_asc" <%=(query && query.sortBy==='date_asc' ) ? 'selected' : '' %>>Date
+                            (oldest)</option>
+                        <option value="co2_desc" <%=(query && query.sortBy==='co2_desc' ) ? 'selected' : '' %>>CO&#8322;
+                            (highest)</option>
+                        <option value="co2_asc" <%=(query && query.sortBy==='co2_asc' ) ? 'selected' : '' %>>CO&#8322;
+                            (lowest)</option>
+                        <option value="dist_desc" <%=(query && query.sortBy==='dist_desc' ) ? 'selected' : '' %>
+                            >Distance (longest)</option>
+                        <option value="dist_asc" <%=(query && query.sortBy==='dist_asc' ) ? 'selected' : '' %>>Distance
+                            (shortest)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>&nbsp;</label>
+                    <div class="btn-group">
+                        <button type="submit" class="btn btn-primary btn-sm">Apply</button>
+                        <a href="/admin/journeys" class="btn btn-secondary btn-sm">Reset</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Min CO&#8322; (g)</label>
+                    <input type="number" name="minCo2" class="form-control" min="0"
+                        value="<%= (query && query.minCo2) || '' %>">
+                </div>
+                <div class="form-group">
+                    <label>Max CO&#8322; (g)</label>
+                    <input type="number" name="maxCo2" class="form-control" min="0"
+                        value="<%= (query && query.maxCo2) || '' %>">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Min Distance (km)</label>
+                    <input type="number" name="minDist" class="form-control" min="0" step="0.1"
+                        value="<%= (query && query.minDist) || '' %>">
+                </div>
+                <div class="form-group">
+                    <label>Max Distance (km)</label>
+                    <input type="number" name="maxDist" class="form-control" min="0" step="0.1"
+                        value="<%= (query && query.maxDist) || '' %>">
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Journeys Table -->
+    <div class="card">
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>User</th>
+                        <th>Origin</th>
+                        <th>Destination</th>
+                        <th>Mode</th>
+                        <th>Vehicle</th>
+                        <th>Distance</th>
+                        <th>Gradient</th>
+                        <th>CO&#8322;</th>
+                        <th>Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% if (journeys.length===0) { %>
+                        <tr>
+                            <td colspan="11" style="text-align:center;padding:2rem;color:rgba(230,237,243,0.55);">
+                                No journeys match your filters
+                            </td>
+                        </tr>
+                        <% } %>
+
+                            <% journeys.forEach(function(j, index) { %>
+                                <tr>
+                                    <td style="color:rgba(230,237,243,0.45);">
+                                        <%= index + 1 %>
+                                    </td>
+                                    <td>
+                                        <% if (j.userId) { %>
+                                            <a href="/admin/users/<%= j.userId._id %>/journeys"
+                                                style="color:#66BB6A;font-weight:500;">
+                                                <%= j.userId.name %>
+                                            </a>
+                                            <% } else { %>
+                                                <span style="color:rgba(230,237,243,0.35);">Deleted</span>
+                                                <% } %>
+                                    </td>
+                                    <td style="font-weight:500;color:#f1f5f9;">
+                                        <%= j.origin %>
+                                    </td>
+                                    <td style="font-weight:500;color:#f1f5f9;">
+                                        <%= j.destination %>
+                                    </td>
+                                    <td>
+                                        <% if (j.transportMode) { %>
+                                            <span class="badge badge-blue">
+                                                <%= j.transportMode.icon %>
+                                                    <%= j.transportMode.name %>
+                                            </span>
+                                            <% } else { %>
+                                                <span class="badge badge-default">N/A</span>
+                                                <% } %>
+                                    </td>
+                                    <td>
+                                        <% if (j.userVehicle) { %>
+                                            <span class="badge badge-teal">
+                                                <%= j.userVehicle.nickname %>
+                                            </span>
+                                            <% } else { %>
+                                                <span style="color:rgba(230,237,243,0.35);">—</span>
+                                                <% } %>
+                                    </td>
+                                    <td>
+                                        <%= j.distance %> km
+                                    </td>
+                                    <td>
+                                        <% if (j.gradientModifier && j.gradientModifier !==1) { %>
+                                            <span class="badge badge-purple">
+                                                <%= j.gradientModifier %>x
+                                            </span>
+                                            <% } else { %>
+                                                <span style="color:rgba(230,237,243,0.35);">—</span>
+                                                <% } %>
+                                    </td>
+                                    <td style="color:#4CAF50;font-weight:600;">
+                                        <%= j.emissions>= 1000 ? (j.emissions / 1000).toFixed(1) + ' kg' : j.emissions +
+                                            ' g' %>
+                                    </td>
+                                    <td>
+                                        <%= new Date(j.createdAt).toLocaleDateString('en-GB', {day:'2-digit',
+                                            month:'short', year:'numeric'}) %>
+                                    </td>
+                                    <td>
+                                        <form action="/admin/journeys/<%= j._id %>/delete" method="POST"
+                                            style="display:inline;"
+                                            onsubmit="return confirm('Delete this journey permanently?')">
+                                            <button type="submit" class="btn btn-danger btn-xs">&#128465;
+                                                Delete</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                <% }) %>
+                </tbody>
+
+                <% if (journeys.length> 0) { %>
+                    <tfoot>
+                        <tr style="background:rgba(76,175,80,0.04);font-weight:600;">
+                            <td colspan="6" style="text-align:right;color:#f1f5f9;">
+                                TOTALS (<%= totals.count %> journeys)
+                            </td>
+                            <td style="color:#f1f5f9;">
+                                <%= totals.distance %> km
+                            </td>
+                            <td></td>
+                            <td style="color:#4CAF50;font-size:1rem;">
+                                <%= totals.emissions>= 1000 ? (totals.emissions / 1000).toFixed(1) + ' kg' :
+                                    totals.emissions + ' g' %>
+                            </td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tfoot>
+                    <% } %>
+            </table>
+        </div>
+    </div>
+
+    <%- include('../partials/footer') %>

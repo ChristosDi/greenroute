@@ -93,8 +93,8 @@
 
           <div class="form-group">
             <label for="transportModeId">Transport Mode</label>
-            <select id="transportModeId" name="transportModeId" class="form-control">
-              <option value="">-- Select mode --</option>
+            <select id="transportModeId" name="transportModeId" class="form-control" required>
+              <option value="">-- Select mode (required) --</option>
               <% transportModes.forEach(function(mode) { %>
                 <option value="<%= mode._id %>" data-factor="<%= mode.emissionFactor %>" data-icon="<%= mode.icon %>"
                   data-gradient="<%= mode.usesGradient %>">

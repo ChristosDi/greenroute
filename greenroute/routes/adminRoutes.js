@@ -20,6 +20,13 @@ router.post(
   admin.toggleSuspend,
 );
 router.post("/users/:id/delete", isAuthenticated, isAdmin, admin.deleteUser);
+router.get("/journeys", isAuthenticated, isAdmin, admin.listAllJourneys);
+router.post(
+  "/journeys/:id/delete",
+  isAuthenticated,
+  isAdmin,
+  admin.deleteAnyJourney,
+);
 router.get("/transport-modes", isAuthenticated, isAdmin, tc.listModes);
 router.post("/transport-modes", isAuthenticated, isAdmin, tc.createMode);
 router.post(

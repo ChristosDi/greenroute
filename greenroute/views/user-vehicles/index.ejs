@@ -1,157 +1,184 @@
 <%- include('../partials/header') %>
 
-<div class="page-header">
-  <div>
-    <h1>My Vehicles</h1>
-    <p>Manage your vehicles for more accurate emission tracking</p>
+  <div class="page-header">
+    <div>
+      <h1>My Vehicles</h1>
+      <p>Manage your vehicles for more accurate emission tracking</p>
+    </div>
   </div>
-</div>
 
-<!-- Add Vehicle Form -->
-<div class="card mb-2" id="addVehicleCard">
-  <h3 class="mb-1">Add a Vehicle</h3>
-  <p class="mb-2" style="font-size:0.85rem;color:var(--text-muted);">Search the Euro 6 database or enter details manually.</p>
+  <!-- Add Vehicle Form -->
+  <div class="card mb-2" id="addVehicleCard">
+    <h3 class="mb-1">Add a Vehicle</h3>
+    <p class="mb-2" style="font-size:0.85rem;color:rgba(230,237,243,0.55);">Search the Euro 6 database or enter details
+      manually. A car transport mode is required.</p>
 
-  <form action="/my-vehicles" method="POST" id="addVehicleForm">
-    <div class="form-row">
+    <form action="/my-vehicles" method="POST" id="addVehicleForm">
+
+      <!-- Mandatory: choose car type -->
       <div class="form-group">
-        <label for="nickname">Nickname</label>
-        <input type="text" id="nickname" name="nickname" class="form-control" placeholder='e.g. "Daily Driver"' required>
-      </div>
-      <div class="form-group">
-        <label for="mfSearch">Manufacturer</label>
-        <select id="mfSearch" name="manufacturer" class="form-control" required>
-          <option value="">Loading...</option>
+        <label for="carType">Car Type <span style="color:#ef4444;">*</span></label>
+        <select id="carType" name="carType" class="form-control" required>
+          <option value="">-- Select car type (required) --</option>
+          <option value="petrol">Car (Petrol) — 170 gCO&#8322;/km</option>
+          <option value="diesel">Car (Diesel) — 155 gCO&#8322;/km</option>
+          <option value="hybrid">Car (Hybrid) — 100 gCO&#8322;/km</option>
+          <option value="electric">Car (Electric) — 0 gCO&#8322;/km</option>
         </select>
+        <div class="form-text">This determines the fallback emission factor if your vehicle's Euro 6 CO&#8322; data is
+          unavailable.</div>
       </div>
-    </div>
 
-    <div class="form-group">
-      <label for="modelSearch">Model</label>
-      <select id="modelSearch" name="model" class="form-control" required>
-        <option value="">-- Select manufacturer first --</option>
-      </select>
-    </div>
-
-    <div class="form-row">
-      <div class="form-group">
-        <label>Fuel Type</label>
-        <input type="text" id="fuelType" name="fuelType" class="form-control" readonly placeholder="Auto-filled">
-      </div>
-      <div class="form-group">
-        <label>CO&#8322; (gCO&#8322;/km)</label>
-        <input type="number" id="co2" name="co2" class="form-control" step="0.1" placeholder="Auto-filled from DB or enter manually">
-        <div class="form-text">Leave blank to use transport mode default for emissions.</div>
-      </div>
-    </div>
-
-    <div class="form-row">
-      <div class="form-group">
-        <label>Year</label>
-        <input type="number" id="year" name="year" class="form-control" placeholder="Optional">
-      </div>
-      <div class="form-group" style="display:flex;align-items:flex-end;">
-        <label class="toggle-wrap" style="padding-bottom:0.7rem;">
-          <input type="checkbox" name="setAsDefault" value="true"> Set as default vehicle
-        </label>
-      </div>
-    </div>
-
-    <input type="hidden" id="vehicleRefId" name="vehicleRefId" value="">
-
-    <button type="submit" class="btn btn-primary">Add Vehicle</button>
-  </form>
-</div>
-
-<!-- Vehicle List -->
-<% if (vehicles.length === 0) { %>
-  <div class="card">
-    <div class="empty-state">
-      <div class="empty-icon">&#128664;</div>
-      <p>No vehicles added yet. Add one above to get personalised emissions.</p>
-    </div>
-  </div>
-<% } else { %>
-  <div class="vehicle-grid">
-    <% vehicles.forEach(function(v) { %>
-      <div class="vehicle-card <%= v.isDefault ? 'is-default' : '' %>">
-        <% if (v.isDefault) { %>
-          <span class="default-badge badge badge-teal">&#9733; Default</span>
-        <% } %>
-        <div class="v-name"><%= v.nickname %></div>
-        <div class="v-detail"><%= v.manufacturer %> <%= v.model %><%= v.year ? ' (' + v.year + ')' : '' %></div>
-        <div class="v-detail"><%= v.fuelType || 'Unknown fuel' %></div>
-        <div class="v-co2"><%= v.co2 ? v.co2 + ' gCO₂/km' : 'No CO₂ data — uses mode default' %></div>
-        <div class="v-actions">
-          <% if (!v.isDefault) { %>
-            <form action="/my-vehicles/<%= v._id %>/default" method="POST">
-              <button type="submit" class="btn btn-secondary btn-xs">Set Default</button>
-            </form>
-          <% } %>
-          <form action="/my-vehicles/<%= v._id %>/delete" method="POST" onsubmit="return confirm('Delete this vehicle?')">
-            <button type="submit" class="btn btn-danger btn-xs">Remove</button>
-          </form>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="nickname">Nickname <span style="color:#ef4444;">*</span></label>
+          <input type="text" id="nickname" name="nickname" class="form-control" placeholder='e.g. "Daily Driver"'
+            required>
+        </div>
+        <div class="form-group">
+          <label for="mfSearch">Manufacturer <span style="color:#ef4444;">*</span></label>
+          <select id="mfSearch" name="manufacturer" class="form-control" required>
+            <option value="">Loading...</option>
+          </select>
         </div>
       </div>
-    <% }) %>
+
+      <div class="form-group">
+        <label for="modelSearch">Model <span style="color:#ef4444;">*</span></label>
+        <select id="modelSearch" name="model" class="form-control" required>
+          <option value="">-- Select manufacturer first --</option>
+        </select>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Fuel Type</label>
+          <input type="text" id="fuelType" name="fuelType" class="form-control" readonly placeholder="Auto-filled">
+        </div>
+        <div class="form-group">
+          <label>CO&#8322; (gCO&#8322;/km)</label>
+          <input type="number" id="co2" name="co2" class="form-control" step="0.1"
+            placeholder="Auto-filled from DB or enter manually">
+          <div class="form-text">If blank or unavailable, the car type standard will be used.</div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Year</label>
+          <input type="number" id="year" name="year" class="form-control" placeholder="Optional">
+        </div>
+        <div class="form-group" style="display:flex;align-items:flex-end;">
+          <label class="toggle-wrap" style="padding-bottom:0.7rem;">
+            <input type="checkbox" name="setAsDefault" value="true"> Set as default vehicle
+          </label>
+        </div>
+      </div>
+
+      <input type="hidden" id="vehicleRefId" name="vehicleRefId" value="">
+
+      <button type="submit" class="btn btn-primary">Add Vehicle</button>
+    </form>
   </div>
-<% } %>
 
-<script>
-(function() {
-  var mfSelect    = document.getElementById('mfSearch');
-  var modelSelect = document.getElementById('modelSearch');
-  var fuelEl      = document.getElementById('fuelType');
-  var co2El       = document.getElementById('co2');
-  var yearEl      = document.getElementById('year');
-  var refEl       = document.getElementById('vehicleRefId');
+  <!-- Vehicle List -->
+  <% if (vehicles.length===0) { %>
+    <div class="card">
+      <div class="empty-state">
+        <div class="empty-icon">&#128664;</div>
+        <p>No vehicles added yet. Add one above to get personalised emissions.</p>
+      </div>
+    </div>
+    <% } else { %>
+      <div class="vehicle-grid">
+        <% vehicles.forEach(function(v) { %>
+          <div class="vehicle-card <%= v.isDefault ? 'is-default' : '' %>">
+            <div class="v-name">
+              <%= v.nickname %>
+            </div>
+            <div class="v-detail">
+              <%= v.manufacturer %>
+                <%= v.model %>
+                  <%= v.year ? ' (' + v.year + ')' : '' %>
+            </div>
+            <div class="v-detail">
+              <%= v.fuelType || 'Unknown fuel' %>
+                <%= v.carType ? ' — ' + v.carType.charAt(0).toUpperCase() + v.carType.slice(1) : '' %>
+            </div>
+            <div class="v-co2">
+              <%= v.co2 ? v.co2 + ' gCO₂/km' : 'No CO₂ data — uses car type standard' %>
+            </div>
+            <div class="v-actions">
+              <% if (!v.isDefault) { %>
+                <form action="/my-vehicles/<%= v._id %>/default" method="POST">
+                  <button type="submit" class="btn btn-secondary btn-xs">Set Default</button>
+                </form>
+                <% } %>
+                  <form action="/my-vehicles/<%= v._id %>/delete" method="POST"
+                    onsubmit="return confirm('Delete this vehicle?')">
+                    <button type="submit" class="btn btn-danger btn-xs">Remove</button>
+                  </form>
+            </div>
+          </div>
+          <% }) %>
+      </div>
+      <% } %>
 
-  // Load manufacturers
-  fetch('/api/vehicles/manufacturers')
-    .then(function(r){ return r.json(); })
-    .then(function(mfs){
-      mfSelect.innerHTML = '<option value="">-- Select manufacturer --</option>';
-      mfs.forEach(function(m){
-        var opt = document.createElement('option');
-        opt.value = m; opt.textContent = m;
-        mfSelect.appendChild(opt);
-      });
-    })
-    .catch(function(){ mfSelect.innerHTML = '<option value="">Error loading</option>'; });
+        <script>
+          (function () {
+            var mfSelect = document.getElementById('mfSearch');
+            var modelSelect = document.getElementById('modelSearch');
+            var fuelEl = document.getElementById('fuelType');
+            var co2El = document.getElementById('co2');
+            var yearEl = document.getElementById('year');
+            var refEl = document.getElementById('vehicleRefId');
 
-  // When manufacturer changes, load models
-  mfSelect.addEventListener('change', function(){
-    var mf = this.value;
-    if (!mf) { modelSelect.innerHTML = '<option value="">-- Select manufacturer first --</option>'; return; }
+            // Load manufacturers
+            fetch('/api/vehicles/manufacturers')
+              .then(function (r) { return r.json(); })
+              .then(function (mfs) {
+                mfSelect.innerHTML = '<option value="">-- Select manufacturer --</option>';
+                mfs.forEach(function (m) {
+                  var opt = document.createElement('option');
+                  opt.value = m; opt.textContent = m;
+                  mfSelect.appendChild(opt);
+                });
+              })
+              .catch(function () { mfSelect.innerHTML = '<option value="">Error loading</option>'; });
 
-    modelSelect.innerHTML = '<option value="">Loading...</option>';
-    fetch('/api/vehicles/models?manufacturer=' + encodeURIComponent(mf))
-      .then(function(r){ return r.json(); })
-      .then(function(vehicles){
-        modelSelect.innerHTML = '<option value="">-- Select model --</option>';
-        vehicles.forEach(function(v){
-          var opt = document.createElement('option');
-          opt.value = v.model;
-          opt.textContent = v.model + (v.fuelType ? ' (' + v.fuelType + ')' : '') + (v.co2 ? ' — ' + v.co2 + ' gCO₂/km' : '');
-          opt.setAttribute('data-co2', v.co2 || '');
-          opt.setAttribute('data-fuel', v.fuelType || '');
-          opt.setAttribute('data-year', v.year || '');
-          opt.setAttribute('data-id', v._id || '');
-          modelSelect.appendChild(opt);
-        });
-      });
-  });
+            // When manufacturer changes, load models
+            mfSelect.addEventListener('change', function () {
+              var mf = this.value;
+              if (!mf) { modelSelect.innerHTML = '<option value="">-- Select manufacturer first --</option>'; return; }
 
-  // When model is selected, auto-fill fields
-  modelSelect.addEventListener('change', function(){
-    var opt = this.options[this.selectedIndex];
-    if (!opt || !opt.value) { fuelEl.value=''; co2El.value=''; yearEl.value=''; refEl.value=''; return; }
-    fuelEl.value = opt.getAttribute('data-fuel') || '';
-    co2El.value  = opt.getAttribute('data-co2') || '';
-    yearEl.value = opt.getAttribute('data-year') || '';
-    refEl.value  = opt.getAttribute('data-id') || '';
-  });
-})();
-</script>
+              modelSelect.innerHTML = '<option value="">Loading...</option>';
+              fetch('/api/vehicles/models?manufacturer=' + encodeURIComponent(mf))
+                .then(function (r) { return r.json(); })
+                .then(function (vehicles) {
+                  modelSelect.innerHTML = '<option value="">-- Select model --</option>';
+                  vehicles.forEach(function (v) {
+                    var opt = document.createElement('option');
+                    opt.value = v.model;
+                    opt.textContent = v.model + (v.fuelType ? ' (' + v.fuelType + ')' : '') + (v.co2 ? ' — ' + v.co2 + ' gCO₂/km' : '');
+                    opt.setAttribute('data-co2', v.co2 || '');
+                    opt.setAttribute('data-fuel', v.fuelType || '');
+                    opt.setAttribute('data-year', v.year || '');
+                    opt.setAttribute('data-id', v._id || '');
+                    modelSelect.appendChild(opt);
+                  });
+                });
+            });
 
-<%- include('../partials/footer') %>
+            // When model selected, auto-fill
+            modelSelect.addEventListener('change', function () {
+              var opt = this.options[this.selectedIndex];
+              if (!opt || !opt.value) { fuelEl.value = ''; co2El.value = ''; yearEl.value = ''; refEl.value = ''; return; }
+              fuelEl.value = opt.getAttribute('data-fuel') || '';
+              co2El.value = opt.getAttribute('data-co2') || '';
+              yearEl.value = opt.getAttribute('data-year') || '';
+              refEl.value = opt.getAttribute('data-id') || '';
+            });
+          })();
+        </script>
+
+        <%- include('../partials/footer') %>
