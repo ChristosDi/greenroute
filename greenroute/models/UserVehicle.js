@@ -20,7 +20,7 @@ var userVehicleSchema = new mongoose.Schema(
     // CO2 from Euro 6 DB or manually entered; null = use carType standard
     co2: { type: Number, default: null },
     // Mandatory car type — determines fallback emission factor
-    // petrol=170, diesel=155, hybrid=100, electric=0
+    // petrol=171, diesel=155, hybrid=100, electric=0
     carType: {
       type: String,
       enum: ["petrol", "diesel", "hybrid", "electric"],
@@ -44,8 +44,8 @@ userVehicleSchema.pre("save", async function (next) {
 
 // Static: get the standard emission factor for a car type
 userVehicleSchema.statics.getStandardFactor = function (carType) {
-  var standards = { petrol: 170, diesel: 155, hybrid: 100, electric: 0 };
-  return standards[carType] || 170;
+  var standards = { petrol: 171, diesel: 155, hybrid: 100, electric: 0 };
+  return carType in standards ? standards[carType] : 171;
 };
 
 userVehicleSchema.index({ userId: 1 });

@@ -156,7 +156,7 @@ describe('Journey Model', () => {
 describe('TransportMode Model', () => {
 
   test('should create mode with usesGradient flag', async () => {
-    const car = await TransportMode.create({ name: 'Car', emissionFactor: 170, usesGradient: true });
+    const car = await TransportMode.create({ name: 'Car', emissionFactor: 171, usesGradient: true });
     const train = await TransportMode.create({ name: 'Train', emissionFactor: 41, usesGradient: false });
     expect(car.usesGradient).toBe(true);
     expect(train.usesGradient).toBe(false);
@@ -279,11 +279,11 @@ describe('UserVehicle Model', () => {
   });
 
   test('should return correct standard factor via getStandardFactor', () => {
-    expect(UserVehicle.getStandardFactor('petrol')).toBe(170);
+    expect(UserVehicle.getStandardFactor('petrol')).toBe(171);
     expect(UserVehicle.getStandardFactor('diesel')).toBe(155);
     expect(UserVehicle.getStandardFactor('hybrid')).toBe(100);
     expect(UserVehicle.getStandardFactor('electric')).toBe(0);
-    expect(UserVehicle.getStandardFactor('unknown')).toBe(170); // fallback
+    expect(UserVehicle.getStandardFactor('unknown')).toBe(171); // fallback
   });
 
   test('should allow null CO2 for manual vehicles', async () => {
