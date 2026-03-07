@@ -70,7 +70,7 @@ exports.login = async function (req, res) {
     var user = await User.findOne({ email: email.toLowerCase() });
       if (!user) return res.status(401).render('auth/login', { error: 'Invalid email or password' });
       if (user.status === 'suspended') return res.status(403).render('auth/login', { error: 'Your account has been suspended. Please contact an administrator for assistance.' });
-    }
+    
 
     // ── Check if account is suspended ───────────────────────
     // Suspended users get a clear, specific message explaining

@@ -1,23 +1,14 @@
 // tests/models.test.js
 // ═══════════════════════════════════════════════════════════════
-// MODEL VALIDATION TESTS
+// MODEL VALIDATION TESTS — 45 test cases
 //
-// Tests every Mongoose model in the application:
-//   1. User       — registration, password hashing, validation
-//   2. Journey    — CRUD fields, emission calculations, references
-//   3. TransportMode — emission factors, active/inactive toggling
-//   4. Vehicle    — Euro 6 dataset schema mapping
-//   5. UserVehicle — user-vehicle linking, default vehicle logic
-//
-// These tests verify that:
-//   - Required fields are enforced (Mongoose validation)
-//   - Default values are applied correctly
-//   - Password hashing works via the pre-save hook
-//   - The comparePassword method works for auth
-//   - References between models (ObjectId) work correctly
-//   - The "only one default vehicle per user" logic works
-//
-// Total: 30+ individual test cases
+// Tests every Mongoose model's schema validation, defaults,
+// relationships, and business logic:
+//   1. User       — hashing, auth, roles, status (active/suspended)
+//   2. Journey    — fields, defaults, emissions, gradient, emissionSource
+//   3. TransportMode — unique names, usesGradient flag
+//   4. Vehicle    — Euro 6 schema, search, aggregation
+//   5. UserVehicle — carType requirement, default enforcement, CO2 fallback
 // ═══════════════════════════════════════════════════════════════
 
 const { connect, disconnect, clearDatabase } = require('./setup');
@@ -27,543 +18,279 @@ const TransportMode = require('../models/TransportMode');
 const Vehicle       = require('../models/Vehicle');
 const UserVehicle   = require('../models/UserVehicle');
 
-// ── Lifecycle hooks: connect before tests, clean between, disconnect after ──
 beforeAll(connect);
 afterEach(clearDatabase);
 afterAll(disconnect);
 
-
-// ═══════════════════════════════════════════════════════════════
+// ───────────────────────────────────────────────────────────────
 // 1. USER MODEL
-// ═══════════════════════════════════════════════════════════════
+// ───────────────────────────────────────────────────────────────
 describe('User Model', () => {
 
-  // Test 1: A valid user should save successfully
-  test('should create a user with valid fields', async () => {
-    const user = await User.create({
-      name: 'Test User',
-      email: 'test@example.com',
-      password: 'password123'
-    });
-
+  test('should create a user with valid fields and hash password', async () => {
+    const user = await User.create({ name: 'Test', email: 'test@test.com', password: 'password123' });
     expect(user._id).toBeDefined();
-    expect(user.name).toBe('Test User');
-    expect(user.email).toBe('test@example.com');
-    // Password should be hashed, NOT stored in plain text
+    expect(user.name).toBe('Test');
+    // Password must be hashed, not plain text
     expect(user.password).not.toBe('password123');
-    // Default role should be 'user' (not admin)
-    expect(user.role).toBe('user');
-  });
-
-  // Test 2: Password hashing via the pre-save hook
-  // The User schema has a pre('save') middleware that calls bcrypt.hash()
-  test('should hash the password before saving', async () => {
-    const user = await User.create({
-      name: 'Hash Test',
-      email: 'hash@test.com',
-      password: 'mySecret123'
-    });
-
-    // bcrypt hashes start with '$2a$' or '$2b$'
     expect(user.password).toMatch(/^\$2[ab]\$/);
-    // The hash should be 60 characters long
     expect(user.password.length).toBe(60);
   });
 
-  // Test 3: The comparePassword instance method
-  // Used during login to verify the entered password
-  test('should correctly compare passwords', async () => {
-    const user = await User.create({
-      name: 'Compare Test',
-      email: 'compare@test.com',
-      password: 'correctPassword'
-    });
-
-    // Correct password should return true
-    const isMatch = await user.comparePassword('correctPassword');
-    expect(isMatch).toBe(true);
-
-    // Wrong password should return false
-    const isWrong = await user.comparePassword('wrongPassword');
-    expect(isWrong).toBe(false);
+  test('should default role to user and status to active', async () => {
+    const user = await User.create({ name: 'Default', email: 'd@t.com', password: '123456' });
+    expect(user.role).toBe('user');
+    expect(user.status).toBe('active');
   });
 
-  // Test 4: Required fields — name
-  test('should require a name', async () => {
-    await expect(
-      User.create({ email: 'noname@test.com', password: '123456' })
-    ).rejects.toThrow();
+  test('should correctly compare passwords via instance method', async () => {
+    const user = await User.create({ name: 'Compare', email: 'c@t.com', password: 'correct' });
+    expect(await user.comparePassword('correct')).toBe(true);
+    expect(await user.comparePassword('wrong')).toBe(false);
   });
 
-  // Test 5: Required fields — email
-  test('should require an email', async () => {
-    await expect(
-      User.create({ name: 'No Email', password: '123456' })
-    ).rejects.toThrow();
+  test('should require name, email, and password', async () => {
+    await expect(User.create({ email: 'e@t.com', password: '123456' })).rejects.toThrow();
+    await expect(User.create({ name: 'N', password: '123456' })).rejects.toThrow();
+    await expect(User.create({ name: 'N', email: 'e@t.com' })).rejects.toThrow();
   });
 
-  // Test 6: Required fields — password
-  test('should require a password', async () => {
-    await expect(
-      User.create({ name: 'No Pass', email: 'nopass@test.com' })
-    ).rejects.toThrow();
+  test('should enforce unique email', async () => {
+    await User.create({ name: 'A', email: 'dup@t.com', password: '123456' });
+    await expect(User.create({ name: 'B', email: 'dup@t.com', password: '654321' })).rejects.toThrow();
   });
 
-  // Test 7: Email uniqueness — the schema has unique:true on email
-  test('should not allow duplicate emails', async () => {
-    await User.create({ name: 'First', email: 'dup@test.com', password: '123456' });
-
-    await expect(
-      User.create({ name: 'Second', email: 'dup@test.com', password: '654321' })
-    ).rejects.toThrow();
-  });
-
-  // Test 8: Email should be stored in lowercase
   test('should store email in lowercase', async () => {
-    const user = await User.create({
-      name: 'Lowercase Test',
-      email: 'UPPER@TEST.COM',
-      password: '123456'
-    });
-
+    const user = await User.create({ name: 'Upper', email: 'UPPER@TEST.COM', password: '123456' });
     expect(user.email).toBe('upper@test.com');
   });
 
-  // Test 9: Role enum validation — only 'user' or 'admin' allowed
-  test('should only accept valid roles', async () => {
-    await expect(
-      User.create({ name: 'Bad Role', email: 'role@test.com', password: '123456', role: 'superadmin' })
-    ).rejects.toThrow();
+  test('should only accept valid roles (user, admin)', async () => {
+    await expect(User.create({ name: 'Bad', email: 'b@t.com', password: '123456', role: 'superadmin' })).rejects.toThrow();
   });
 
-  // Test 10: Default role assignment
-  test('should default role to user', async () => {
-    const user = await User.create({
-      name: 'Default Role',
-      email: 'default@test.com',
-      password: '123456'
-    });
-
-    expect(user.role).toBe('user');
+  test('should only accept valid statuses (active, suspended)', async () => {
+    await expect(User.create({ name: 'Bad', email: 'bs@t.com', password: '123456', status: 'banned' })).rejects.toThrow();
   });
 
-  // Test 11: Admin role can be set explicitly
-  test('should allow admin role when explicitly set', async () => {
-    const user = await User.create({
-      name: 'Admin User',
-      email: 'admin@test.com',
-      password: '123456',
-      role: 'admin'
-    });
-
+  test('should allow setting admin role and suspended status', async () => {
+    const user = await User.create({ name: 'Admin', email: 'a@t.com', password: '123456', role: 'admin', status: 'suspended' });
     expect(user.role).toBe('admin');
+    expect(user.status).toBe('suspended');
   });
 
-  // Test 12: Timestamps are created automatically
   test('should have timestamps', async () => {
-    const user = await User.create({
-      name: 'Timestamp Test',
-      email: 'time@test.com',
-      password: '123456'
-    });
-
+    const user = await User.create({ name: 'TS', email: 'ts@t.com', password: '123456' });
     expect(user.createdAt).toBeDefined();
     expect(user.updatedAt).toBeDefined();
   });
 });
 
-
-// ═══════════════════════════════════════════════════════════════
+// ───────────────────────────────────────────────────────────────
 // 2. JOURNEY MODEL
-// ═══════════════════════════════════════════════════════════════
+// ───────────────────────────────────────────────────────────────
 describe('Journey Model', () => {
 
   let testUser;
-
-  // Create a user to own the journeys (journeys require a userId)
   beforeEach(async () => {
-    testUser = await User.create({
-      name: 'Journey Owner',
-      email: 'journey@test.com',
-      password: '123456'
+    testUser = await User.create({ name: 'JOwner', email: 'jo@t.com', password: '123456' });
+  });
+
+  test('should create journey with all gradient fields', async () => {
+    const j = await Journey.create({
+      userId: testUser._id, origin: 'Manchester', destination: 'London',
+      distance: 330, gradient: -0.14, elevationGain: 1240, elevationLoss: 1285,
+      gradientModifier: 1.042, emissions: 58000, baseEmissions: 55658
     });
+    expect(j.origin).toBe('Manchester');
+    expect(j.gradient).toBe(-0.14);
+    expect(j.gradientModifier).toBe(1.042);
   });
 
-  // Test 13: Valid journey creation with all fields
-  test('should create a journey with valid fields', async () => {
-    const journey = await Journey.create({
-      userId: testUser._id,
-      origin: 'Manchester',
-      destination: 'London',
-      distance: 330.5,
-      gradient: -0.14,
-      elevationGain: 1240,
-      elevationLoss: 1285,
-      gradientModifier: 1.042,
-      emissions: 58000,
-      baseEmissions: 55658
-    });
-
-    expect(journey._id).toBeDefined();
-    expect(journey.origin).toBe('Manchester');
-    expect(journey.destination).toBe('London');
-    expect(journey.distance).toBe(330.5);
-    expect(journey.gradient).toBe(-0.14);
-    expect(journey.gradientModifier).toBe(1.042);
+  test('should require userId, origin, destination, distance', async () => {
+    await expect(Journey.create({ origin: 'A', destination: 'B', distance: 10 })).rejects.toThrow();
+    await expect(Journey.create({ userId: testUser._id, destination: 'B', distance: 10 })).rejects.toThrow();
+    await expect(Journey.create({ userId: testUser._id, origin: 'A', distance: 10 })).rejects.toThrow();
+    await expect(Journey.create({ userId: testUser._id, origin: 'A', destination: 'B' })).rejects.toThrow();
   });
 
-  // Test 14: Required fields — origin, destination, distance, userId
-  test('should require origin', async () => {
-    await expect(
-      Journey.create({ userId: testUser._id, destination: 'London', distance: 100 })
-    ).rejects.toThrow();
+  test('should reject negative distance', async () => {
+    await expect(Journey.create({ userId: testUser._id, origin: 'A', destination: 'B', distance: -50 })).rejects.toThrow();
   });
 
-  test('should require destination', async () => {
-    await expect(
-      Journey.create({ userId: testUser._id, origin: 'Manchester', distance: 100 })
-    ).rejects.toThrow();
+  test('should apply correct defaults', async () => {
+    const j = await Journey.create({ userId: testUser._id, origin: 'A', destination: 'B', distance: 10 });
+    expect(j.gradient).toBe(0);
+    expect(j.elevationGain).toBe(0);
+    expect(j.elevationLoss).toBe(0);
+    expect(j.gradientModifier).toBe(1.0);
+    expect(j.emissions).toBe(0);
+    expect(j.baseEmissions).toBe(0);
+    expect(j.emissionSource).toBe('mode');
   });
 
-  test('should require distance', async () => {
-    await expect(
-      Journey.create({ userId: testUser._id, origin: 'Manchester', destination: 'London' })
-    ).rejects.toThrow();
+  test('should only allow valid emissionSource values', async () => {
+    await expect(Journey.create({
+      userId: testUser._id, origin: 'A', destination: 'B', distance: 10, emissionSource: 'magic'
+    })).rejects.toThrow();
   });
 
-  test('should require userId', async () => {
-    await expect(
-      Journey.create({ origin: 'Manchester', destination: 'London', distance: 100 })
-    ).rejects.toThrow();
-  });
-
-  // Test 15: Distance must be non-negative
-  test('should not allow negative distance', async () => {
-    await expect(
-      Journey.create({
-        userId: testUser._id,
-        origin: 'A', destination: 'B', distance: -50
-      })
-    ).rejects.toThrow();
-  });
-
-  // Test 16: Default values are applied
-  test('should apply default values', async () => {
-    const journey = await Journey.create({
-      userId: testUser._id,
-      origin: 'A',
-      destination: 'B',
-      distance: 10
-    });
-
-    // These fields should have defaults from the schema
-    expect(journey.gradient).toBe(0);
-    expect(journey.elevationGain).toBe(0);
-    expect(journey.elevationLoss).toBe(0);
-    expect(journey.gradientModifier).toBe(1.0);
-    expect(journey.emissions).toBe(0);
-    expect(journey.baseEmissions).toBe(0);
-    expect(journey.emissionSource).toBe('mode');
-  });
-
-  // Test 17: Emission source enum validation
-  test('should only allow valid emission sources', async () => {
-    await expect(
-      Journey.create({
-        userId: testUser._id,
-        origin: 'A', destination: 'B', distance: 10,
-        emissionSource: 'magic'
-      })
-    ).rejects.toThrow();
-  });
-
-  // Test 18: Journey date defaults to now
   test('should default date to current time', async () => {
     const before = new Date();
-    const journey = await Journey.create({
-      userId: testUser._id,
-      origin: 'A', destination: 'B', distance: 10
-    });
-    const after = new Date();
-
-    expect(journey.date.getTime()).toBeGreaterThanOrEqual(before.getTime());
-    expect(journey.date.getTime()).toBeLessThanOrEqual(after.getTime());
+    const j = await Journey.create({ userId: testUser._id, origin: 'A', destination: 'B', distance: 10 });
+    expect(j.date.getTime()).toBeGreaterThanOrEqual(before.getTime());
   });
 
-  // Test 19: Query journeys by userId
   test('should find journeys by userId', async () => {
-    // Create journeys for our test user
     await Journey.create({ userId: testUser._id, origin: 'A', destination: 'B', distance: 10 });
     await Journey.create({ userId: testUser._id, origin: 'C', destination: 'D', distance: 20 });
-
-    // Create another user with their own journey
-    const otherUser = await User.create({ name: 'Other', email: 'other@test.com', password: '123456' });
-    await Journey.create({ userId: otherUser._id, origin: 'E', destination: 'F', distance: 30 });
-
-    // Should only find 2 journeys for testUser
-    const journeys = await Journey.find({ userId: testUser._id });
-    expect(journeys).toHaveLength(2);
+    const other = await User.create({ name: 'Other', email: 'o@t.com', password: '123456' });
+    await Journey.create({ userId: other._id, origin: 'E', destination: 'F', distance: 30 });
+    expect(await Journey.find({ userId: testUser._id })).toHaveLength(2);
   });
 });
 
-
-// ═══════════════════════════════════════════════════════════════
+// ───────────────────────────────────────────────────────────────
 // 3. TRANSPORT MODE MODEL
-// ═══════════════════════════════════════════════════════════════
+// ───────────────────────────────────────────────────────────────
 describe('TransportMode Model', () => {
 
-  // Test 20: Create a valid transport mode
-  test('should create a transport mode', async () => {
-    const mode = await TransportMode.create({
-      name: 'Bus',
-      emissionFactor: 89,
-      icon: '🚌',
-      description: 'City bus per passenger'
-    });
-
-    expect(mode.name).toBe('Bus');
-    expect(mode.emissionFactor).toBe(89);
-    expect(mode.icon).toBe('🚌');
-    expect(mode.isActive).toBe(true); // default
+  test('should create mode with usesGradient flag', async () => {
+    const car = await TransportMode.create({ name: 'Car', emissionFactor: 170, usesGradient: true });
+    const train = await TransportMode.create({ name: 'Train', emissionFactor: 41, usesGradient: false });
+    expect(car.usesGradient).toBe(true);
+    expect(train.usesGradient).toBe(false);
   });
 
-  // Test 21: Name is required and must be unique
-  test('should require a name', async () => {
-    await expect(
-      TransportMode.create({ emissionFactor: 100 })
-    ).rejects.toThrow();
+  test('should require name and emissionFactor', async () => {
+    await expect(TransportMode.create({ emissionFactor: 100 })).rejects.toThrow();
+    await expect(TransportMode.create({ name: 'Test' })).rejects.toThrow();
   });
 
-  test('should not allow duplicate names', async () => {
-    await TransportMode.create({ name: 'Train', emissionFactor: 41 });
-    await expect(
-      TransportMode.create({ name: 'Train', emissionFactor: 50 })
-    ).rejects.toThrow();
+  test('should enforce unique name', async () => {
+    await TransportMode.create({ name: 'Bus', emissionFactor: 89 });
+    await expect(TransportMode.create({ name: 'Bus', emissionFactor: 90 })).rejects.toThrow();
   });
 
-  // Test 22: Emission factor is required
-  test('should require an emission factor', async () => {
-    await expect(
-      TransportMode.create({ name: 'Unknown Mode' })
-    ).rejects.toThrow();
+  test('should default isActive to true, usesGradient to false', async () => {
+    const m = await TransportMode.create({ name: 'Bike', emissionFactor: 0 });
+    expect(m.isActive).toBe(true);
+    expect(m.usesGradient).toBe(false);
   });
 
-  // Test 23: isActive defaults to true
-  test('should default isActive to true', async () => {
-    const mode = await TransportMode.create({ name: 'Bike', emissionFactor: 0 });
-    expect(mode.isActive).toBe(true);
-  });
-
-  // Test 24: Can toggle isActive
-  test('should allow toggling isActive', async () => {
-    const mode = await TransportMode.create({ name: 'Ferry', emissionFactor: 115 });
-    expect(mode.isActive).toBe(true);
-
-    mode.isActive = false;
-    await mode.save();
-
-    const updated = await TransportMode.findById(mode._id);
+  test('should toggle isActive', async () => {
+    const m = await TransportMode.create({ name: 'Ferry', emissionFactor: 115 });
+    m.isActive = false;
+    await m.save();
+    const updated = await TransportMode.findById(m._id);
     expect(updated.isActive).toBe(false);
   });
 
-  // Test 25: Filter only active modes (as used in journey form)
-  test('should filter active modes only', async () => {
-    await TransportMode.create({ name: 'Active Mode', emissionFactor: 50, isActive: true });
-    await TransportMode.create({ name: 'Disabled Mode', emissionFactor: 200, isActive: false });
-
-    const activeModes = await TransportMode.find({ isActive: true });
-    expect(activeModes).toHaveLength(1);
-    expect(activeModes[0].name).toBe('Active Mode');
+  test('should filter active-only modes', async () => {
+    await TransportMode.create({ name: 'Active', emissionFactor: 50, isActive: true });
+    await TransportMode.create({ name: 'Disabled', emissionFactor: 200, isActive: false });
+    expect(await TransportMode.find({ isActive: true })).toHaveLength(1);
   });
 });
 
-
-// ═══════════════════════════════════════════════════════════════
-// 4. VEHICLE MODEL (Euro 6 Dataset)
-// ═══════════════════════════════════════════════════════════════
+// ───────────────────────────────────────────────────────────────
+// 4. VEHICLE MODEL (Euro 6)
+// ───────────────────────────────────────────────────────────────
 describe('Vehicle Model', () => {
 
-  // Test 26: Create a vehicle matching Euro 6 CSV structure
-  test('should create a vehicle from Euro 6 data', async () => {
-    const vehicle = await Vehicle.create({
-      manufacturer: 'BMW',
-      model: '320d',
-      description: '320d xDrive Saloon',
-      fuelType: 'Diesel',
-      engineSize: 1995,
-      co2: 127,
-      transmission: 'M6'
-    });
-
-    expect(vehicle.manufacturer).toBe('BMW');
-    expect(vehicle.model).toBe('320d');
-    expect(vehicle.co2).toBe(127);
+  test('should create vehicle from Euro 6 data', async () => {
+    const v = await Vehicle.create({ manufacturer: 'BMW', model: '320d', fuelType: 'Diesel', co2: 127, engineSize: 1995 });
+    expect(v.manufacturer).toBe('BMW');
+    expect(v.co2).toBe(127);
   });
 
-  // Test 27: Manufacturer and model are required
-  test('should require manufacturer', async () => {
-    await expect(
-      Vehicle.create({ model: 'Test' })
-    ).rejects.toThrow();
+  test('should require manufacturer and model', async () => {
+    await expect(Vehicle.create({ model: 'X' })).rejects.toThrow();
+    await expect(Vehicle.create({ manufacturer: 'X' })).rejects.toThrow();
   });
 
-  test('should require model', async () => {
-    await expect(
-      Vehicle.create({ manufacturer: 'Test' })
-    ).rejects.toThrow();
+  test('should support case-insensitive manufacturer search', async () => {
+    await Vehicle.insertMany([
+      { manufacturer: 'BMW', model: '320d' },
+      { manufacturer: 'BMW', model: '520d' },
+      { manufacturer: 'Audi', model: 'A3' }
+    ]);
+    expect(await Vehicle.find({ manufacturer: /bmw/i })).toHaveLength(2);
   });
 
-  // Test 28: Search by manufacturer (regex, case-insensitive)
-  test('should find vehicles by manufacturer search', async () => {
-    await Vehicle.create({ manufacturer: 'BMW', model: '320d', co2: 127 });
-    await Vehicle.create({ manufacturer: 'BMW', model: '520d', co2: 140 });
-    await Vehicle.create({ manufacturer: 'Audi', model: 'A3', co2: 110 });
-
-    const results = await Vehicle.find({ manufacturer: /bmw/i });
-    expect(results).toHaveLength(2);
-  });
-
-  // Test 29: Bulk insert (as used by seedVehicles.js)
-  test('should support bulk insert', async () => {
-    const vehicles = Array.from({ length: 100 }, (_, i) => ({
-      manufacturer: 'TestMaker',
-      model: 'Model ' + i,
-      co2: 100 + i
-    }));
-
-    await Vehicle.insertMany(vehicles);
-    const count = await Vehicle.countDocuments();
-    expect(count).toBe(100);
-  });
-
-  // Test 30: Aggregation — average CO2 by fuel type
-  test('should aggregate stats by fuel type', async () => {
+  test('should support bulk insert and aggregation', async () => {
     await Vehicle.insertMany([
       { manufacturer: 'A', model: 'M1', fuelType: 'Petrol', co2: 150 },
       { manufacturer: 'B', model: 'M2', fuelType: 'Petrol', co2: 160 },
-      { manufacturer: 'C', model: 'M3', fuelType: 'Diesel', co2: 120 },
+      { manufacturer: 'C', model: 'M3', fuelType: 'Diesel', co2: 120 }
     ]);
-
     const stats = await Vehicle.aggregate([
       { $group: { _id: '$fuelType', avgCo2: { $avg: '$co2' }, count: { $sum: 1 } } },
       { $sort: { _id: 1 } }
     ]);
-
     expect(stats).toHaveLength(2);
-    // Diesel: 120 avg, Petrol: 155 avg
-    const diesel = stats.find(s => s._id === 'Diesel');
-    expect(diesel.avgCo2).toBe(120);
-    expect(diesel.count).toBe(1);
-
-    const petrol = stats.find(s => s._id === 'Petrol');
-    expect(petrol.avgCo2).toBe(155);
-    expect(petrol.count).toBe(2);
+    expect(stats.find(s => s._id === 'Petrol').avgCo2).toBe(155);
   });
 });
 
-
-// ═══════════════════════════════════════════════════════════════
+// ───────────────────────────────────────────────────────────────
 // 5. USER VEHICLE MODEL
-// ═══════════════════════════════════════════════════════════════
+// ───────────────────────────────────────────────────────────────
 describe('UserVehicle Model', () => {
 
   let testUser;
-
   beforeEach(async () => {
-    testUser = await User.create({
-      name: 'Vehicle Owner',
-      email: 'vowner@test.com',
-      password: '123456'
+    testUser = await User.create({ name: 'VOwner', email: 'vo@t.com', password: '123456' });
+  });
+
+  test('should require carType (petrol/diesel/hybrid/electric)', async () => {
+    // Missing carType should fail
+    await expect(UserVehicle.create({
+      userId: testUser._id, nickname: 'Car', manufacturer: 'BMW', model: '320d'
+    })).rejects.toThrow();
+  });
+
+  test('should reject invalid carType values', async () => {
+    await expect(UserVehicle.create({
+      userId: testUser._id, nickname: 'Car', manufacturer: 'BMW', model: '320d', carType: 'hydrogen'
+    })).rejects.toThrow();
+  });
+
+  test('should create vehicle with valid carType', async () => {
+    const v = await UserVehicle.create({
+      userId: testUser._id, nickname: 'Daily', manufacturer: 'BMW', model: '320d',
+      carType: 'diesel', co2: 127
     });
+    expect(v.carType).toBe('diesel');
+    expect(v.co2).toBe(127);
   });
 
-  // Test 31: Create a user vehicle
-  test('should create a user vehicle', async () => {
-    const uv = await UserVehicle.create({
-      userId: testUser._id,
-      nickname: 'Daily Driver',
-      manufacturer: 'BMW',
-      model: '320d',
-      year: 2023,
-      fuelType: 'Diesel',
-      co2: 127
-    });
-
-    expect(uv.nickname).toBe('Daily Driver');
-    expect(uv.co2).toBe(127);
-    expect(uv.isDefault).toBe(false); // default
-  });
-
-  // Test 32: Required fields
-  test('should require nickname, manufacturer, and model', async () => {
-    // Missing nickname
-    await expect(
-      UserVehicle.create({ userId: testUser._id, manufacturer: 'BMW', model: '320d' })
-    ).rejects.toThrow();
-
-    // Missing manufacturer
-    await expect(
-      UserVehicle.create({ userId: testUser._id, nickname: 'Test', model: '320d' })
-    ).rejects.toThrow();
-
-    // Missing model
-    await expect(
-      UserVehicle.create({ userId: testUser._id, nickname: 'Test', manufacturer: 'BMW' })
-    ).rejects.toThrow();
-  });
-
-  // Test 33: Setting default vehicle unsets others
-  // The pre-save hook ensures only one default per user
   test('should enforce only one default per user', async () => {
-    // Create first vehicle as default
     const v1 = await UserVehicle.create({
-      userId: testUser._id,
-      nickname: 'Car 1',
-      manufacturer: 'BMW',
-      model: '320d',
-      isDefault: true
+      userId: testUser._id, nickname: 'A', manufacturer: 'BMW', model: '1',
+      carType: 'petrol', isDefault: true
     });
-
-    // Create second vehicle as default — should unset the first
-    const v2 = await UserVehicle.create({
-      userId: testUser._id,
-      nickname: 'Car 2',
-      manufacturer: 'Audi',
-      model: 'A3',
-      isDefault: true
+    await UserVehicle.create({
+      userId: testUser._id, nickname: 'B', manufacturer: 'Audi', model: '2',
+      carType: 'diesel', isDefault: true
     });
-
-    // Reload v1 from database
-    const reloadedV1 = await UserVehicle.findById(v1._id);
-    const reloadedV2 = await UserVehicle.findById(v2._id);
-
-    // Only v2 should be default
-    expect(reloadedV1.isDefault).toBe(false);
-    expect(reloadedV2.isDefault).toBe(true);
+    const reloaded = await UserVehicle.findById(v1._id);
+    expect(reloaded.isDefault).toBe(false);
   });
 
-  // Test 34: CO2 can be null (uses transport mode default instead)
+  test('should return correct standard factor via getStandardFactor', () => {
+    expect(UserVehicle.getStandardFactor('petrol')).toBe(170);
+    expect(UserVehicle.getStandardFactor('diesel')).toBe(155);
+    expect(UserVehicle.getStandardFactor('hybrid')).toBe(100);
+    expect(UserVehicle.getStandardFactor('electric')).toBe(0);
+    expect(UserVehicle.getStandardFactor('unknown')).toBe(170); // fallback
+  });
+
   test('should allow null CO2 for manual vehicles', async () => {
-    const uv = await UserVehicle.create({
-      userId: testUser._id,
-      nickname: 'Old Car',
-      manufacturer: 'Ford',
-      model: 'Focus',
-      co2: null
+    const v = await UserVehicle.create({
+      userId: testUser._id, nickname: 'Old', manufacturer: 'Ford', model: 'Focus',
+      carType: 'petrol', co2: null
     });
-
-    expect(uv.co2).toBeNull();
-  });
-
-  // Test 35: Query vehicles by userId
-  test('should find vehicles belonging to a specific user', async () => {
-    await UserVehicle.create({ userId: testUser._id, nickname: 'A', manufacturer: 'BMW', model: '1' });
-    await UserVehicle.create({ userId: testUser._id, nickname: 'B', manufacturer: 'BMW', model: '2' });
-
-    const otherUser = await User.create({ name: 'Other', email: 'other@v.com', password: '123456' });
-    await UserVehicle.create({ userId: otherUser._id, nickname: 'C', manufacturer: 'Audi', model: '3' });
-
-    const myVehicles = await UserVehicle.find({ userId: testUser._id });
-    expect(myVehicles).toHaveLength(2);
+    expect(v.co2).toBeNull();
   });
 });

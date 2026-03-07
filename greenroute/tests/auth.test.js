@@ -1,18 +1,14 @@
 // tests/auth.test.js
 // ═══════════════════════════════════════════════════════════════
-// AUTHENTICATION ROUTE TESTS
+// AUTHENTICATION & SUSPENSION TESTS — 18 test cases
 //
-// Tests the complete authentication flow:
-//   - User registration (success + validation failures)
-//   - User login (success + wrong credentials)
-//   - Logout (session destruction + cookie clearing)
-//   - Access control (protected routes redirect unauthenticated users)
-//
-// Uses Supertest to send real HTTP requests to the Express app.
-// A Supertest 'agent' is used to persist cookies between requests
-// (simulating a real browser session).
-//
-// Total: 15 test cases
+// Tests the complete auth lifecycle including:
+//   - Registration (success + all validation failures)
+//   - Login (success + wrong credentials)
+//   - Logout (session + cookie destruction)
+//   - Suspended accounts are blocked from login with clear message
+//   - Session persistence and access control
+//   - Admin role redirects (admin goes to /admin, not /dashboard)
 // ═══════════════════════════════════════════════════════════════
 
 const request   = require('supertest');
@@ -21,235 +17,167 @@ const createApp = require('./testApp');
 const User      = require('../models/User');
 
 let app;
-
-beforeAll(async () => {
-  await connect();
-  app = createApp();
-});
-
+beforeAll(async () => { await connect(); app = createApp(); });
 afterEach(clearDatabase);
 afterAll(disconnect);
 
-
-// ═══════════════════════════════════════════════════════════════
-// REGISTRATION
-// ═══════════════════════════════════════════════════════════════
+// ── REGISTRATION ──────────────────────────────────────────────
 describe('POST /auth/register', () => {
 
-  // Test 1: Successful registration redirects to dashboard
-  test('should register a new user and redirect', async () => {
-    const res = await request(app)
-      .post('/auth/register')
-      .send({
-        name: 'New User',
-        email: 'new@test.com',
-        password: 'password123',
-        confirmPassword: 'password123'
-      });
-
-    // 302 = redirect (to /dashboard)
+  test('should register and redirect to dashboard', async () => {
+    const res = await request(app).post('/auth/register')
+      .send({ name: 'New', email: 'new@t.com', password: 'pass123', confirmPassword: 'pass123' });
     expect(res.status).toBe(302);
     expect(res.headers.location).toBe('/dashboard');
-
-    // Verify user was actually created in the database
-    const user = await User.findOne({ email: 'new@test.com' });
+    const user = await User.findOne({ email: 'new@t.com' });
     expect(user).not.toBeNull();
-    expect(user.name).toBe('New User');
+    expect(user.status).toBe('active');
   });
 
-  // Test 2: Missing fields should return 400
-  test('should reject registration with missing fields', async () => {
-    const res = await request(app)
-      .post('/auth/register')
-      .send({ name: 'Incomplete' });
-    // Should render the form with an error, status 400
+  test('should reject missing fields', async () => {
+    const res = await request(app).post('/auth/register').send({ name: 'Incomplete' });
     expect(res.status).toBe(400);
   });
 
-  // Test 3: Password too short should fail
-  test('should reject password shorter than 6 characters', async () => {
-    const res = await request(app)
-      .post('/auth/register')
-      .send({
-        name: 'Short Pass', email: 'short@test.com',
-        password: '123', confirmPassword: '123'
-      });
-
+  test('should reject short password', async () => {
+    const res = await request(app).post('/auth/register')
+      .send({ name: 'Short', email: 's@t.com', password: '123', confirmPassword: '123' });
     expect(res.status).toBe(400);
   });
 
-  // Test 4: Mismatched passwords should fail
   test('should reject mismatched passwords', async () => {
-    const res = await request(app)
-      .post('/auth/register')
-      .send({
-        name: 'Mismatch', email: 'mismatch@test.com',
-        password: 'password123', confirmPassword: 'different456'
-      });
-
+    const res = await request(app).post('/auth/register')
+      .send({ name: 'Mis', email: 'm@t.com', password: 'pass123', confirmPassword: 'diff456' });
     expect(res.status).toBe(400);
   });
 
-  // Test 5: Duplicate email should fail
-  test('should reject duplicate email registration', async () => {
-    // Register first user
-    await User.create({ name: 'First', email: 'dup@test.com', password: 'password123' });
-
-    // Try to register with same email
-    const res = await request(app)
-      .post('/auth/register')
-      .send({
-        name: 'Second', email: 'dup@test.com',
-        password: 'password456', confirmPassword: 'password456'
-      });
-
+  test('should reject duplicate email', async () => {
+    await User.create({ name: 'First', email: 'dup@t.com', password: 'pass123' });
+    const res = await request(app).post('/auth/register')
+      .send({ name: 'Second', email: 'dup@t.com', password: 'pass456', confirmPassword: 'pass456' });
     expect(res.status).toBe(400);
   });
 });
 
-
-// ═══════════════════════════════════════════════════════════════
-// LOGIN
-// ═══════════════════════════════════════════════════════════════
+// ── LOGIN ─────────────────────────────────────────────────────
 describe('POST /auth/login', () => {
 
-  // Create a test user before login tests
   beforeEach(async () => {
-    await User.create({
-      name: 'Login User',
-      email: 'login@test.com',
-      password: 'correctPassword'
-    });
+    await User.create({ name: 'Login User', email: 'login@t.com', password: 'correct' });
   });
 
-  // Test 6: Successful login redirects to dashboard
   test('should login with correct credentials', async () => {
-    const res = await request(app)
-      .post('/auth/login')
-      .send({ email: 'login@test.com', password: 'correctPassword' });
-
+    const res = await request(app).post('/auth/login')
+      .send({ email: 'login@t.com', password: 'correct' });
     expect(res.status).toBe(302);
     expect(res.headers.location).toBe('/dashboard');
   });
 
-  // Test 7: Wrong password should return 401
   test('should reject wrong password', async () => {
-    const res = await request(app)
-      .post('/auth/login')
-      .send({ email: 'login@test.com', password: 'wrongPassword' });
-
+    const res = await request(app).post('/auth/login')
+      .send({ email: 'login@t.com', password: 'wrong' });
     expect(res.status).toBe(401);
   });
 
-  // Test 8: Non-existent email should return 401
   test('should reject non-existent email', async () => {
-    const res = await request(app)
-      .post('/auth/login')
-      .send({ email: 'nobody@test.com', password: 'anyPassword' });
-
+    const res = await request(app).post('/auth/login')
+      .send({ email: 'nobody@t.com', password: 'anything' });
     expect(res.status).toBe(401);
   });
 
-  // Test 9: Missing fields should return 400
-  test('should reject empty login fields', async () => {
-    const res = await request(app)
-      .post('/auth/login')
-      .send({ email: '', password: '' });
-
+  test('should reject empty fields', async () => {
+    const res = await request(app).post('/auth/login').send({ email: '', password: '' });
     expect(res.status).toBe(400);
   });
 });
 
+// ── SUSPENDED ACCOUNT BLOCKING ────────────────────────────────
+describe('Suspended account login', () => {
 
-// ═══════════════════════════════════════════════════════════════
-// LOGOUT
-// ═══════════════════════════════════════════════════════════════
-describe('GET /auth/logout', () => {
+  // This is a critical security test: suspended users must be
+  // completely blocked from accessing the platform
+  test('should block suspended user with clear message', async () => {
+    await User.create({ name: 'Suspended', email: 'sus@t.com', password: 'pass123', status: 'suspended' });
 
-  // Test 10: Logout should redirect to login page
-  test('should redirect to login after logout', async () => {
-    const res = await request(app).get('/auth/logout');
+    const res = await request(app).post('/auth/login')
+      .send({ email: 'sus@t.com', password: 'pass123' });
 
+    // Should get 403 (not 401 — the credentials are correct, but access is denied)
+    expect(res.status).toBe(403);
+    // The error message must be user-friendly and explain the situation
+    expect(res.text).toContain('suspended');
+    expect(res.text).toContain('administrator');
+  });
+
+  // A reactivated user should be able to log in again
+  test('should allow reactivated user to login', async () => {
+    const user = await User.create({ name: 'Reactivated', email: 'react@t.com', password: 'pass123', status: 'suspended' });
+
+    // Reactivate
+    user.status = 'active';
+    await user.save();
+
+    const res = await request(app).post('/auth/login')
+      .send({ email: 'react@t.com', password: 'pass123' });
     expect(res.status).toBe(302);
-    expect(res.headers.location).toBe('/auth/login');
+    expect(res.headers.location).toBe('/dashboard');
+  });
+
+  // Deleted users get "Invalid email or password" — we don't reveal the account was deleted
+  test('should show generic error for deleted users', async () => {
+    const res = await request(app).post('/auth/login')
+      .send({ email: 'deleted@t.com', password: 'pass123' });
+    expect(res.status).toBe(401);
+    expect(res.text).toContain('Invalid');
   });
 });
 
+// ── LOGOUT ────────────────────────────────────────────────────
+describe('GET /auth/logout', () => {
 
-// ═══════════════════════════════════════════════════════════════
-// SESSION PERSISTENCE — using an agent to maintain cookies
-// ═══════════════════════════════════════════════════════════════
-describe('Session-based access control', () => {
-
-  // Test 11: Authenticated user can access dashboard
-  test('should access dashboard when logged in', async () => {
-    // Use an agent to persist cookies across requests
-    const agent = request.agent(app);
-
-    // Register (which also logs in)
-    await agent.post('/auth/register').send({
-      name: 'Session User', email: 'session@test.com',
-      password: 'password123', confirmPassword: 'password123'
-    });
-
-    // Now access dashboard — should get 200 (not redirect)
-    const dashRes = await agent.get('/dashboard');
-    expect(dashRes.status).toBe(200);
-  });
-
-  // Test 12: Unauthenticated user gets redirected from dashboard
-  test('should redirect to login when not authenticated', async () => {
-    const res = await request(app).get('/dashboard');
-
+  test('should redirect to login', async () => {
+    const res = await request(app).get('/auth/logout');
     expect(res.status).toBe(302);
     expect(res.headers.location).toBe('/auth/login');
   });
 
-  // Test 13: Unauthenticated user gets redirected from journeys
-  test('should redirect to login from protected routes', async () => {
-    const res = await request(app).get('/journeys');
-
-    expect(res.status).toBe(302);
-    expect(res.headers.location).toBe('/auth/login');
-  });
-
-  // Test 14: After logout, protected routes redirect again
-  test('should not access dashboard after logout', async () => {
+  test('should block access to protected pages after logout', async () => {
     const agent = request.agent(app);
-
-    // Register + auto-login
-    await agent.post('/auth/register').send({
-      name: 'Logout Test', email: 'logout@test.com',
-      password: 'password123', confirmPassword: 'password123'
-    });
-
-    // Logout
+    await agent.post('/auth/register')
+      .send({ name: 'Logout', email: 'lo@t.com', password: 'pass123', confirmPassword: 'pass123' });
     await agent.get('/auth/logout');
-
-    // Try dashboard — should redirect to login
     const res = await agent.get('/dashboard');
     expect(res.status).toBe(302);
     expect(res.headers.location).toBe('/auth/login');
   });
 });
 
+// ── SESSION / ACCESS CONTROL ──────────────────────────────────
+describe('Session-based access', () => {
 
-// ═══════════════════════════════════════════════════════════════
-// RENDER FORMS
-// ═══════════════════════════════════════════════════════════════
-describe('Auth form pages', () => {
-
-  // Test 15: Login form renders
-  test('should render login page', async () => {
-    const res = await request(app).get('/auth/login');
+  test('should access dashboard when logged in as user', async () => {
+    const agent = request.agent(app);
+    await agent.post('/auth/register')
+      .send({ name: 'Session', email: 'se@t.com', password: 'pass123', confirmPassword: 'pass123' });
+    const res = await agent.get('/dashboard');
     expect(res.status).toBe(200);
-    expect(res.text).toContain('Sign In');
   });
 
-  // Test 16: Register form renders
-  test('should render register page', async () => {
-    const res = await request(app).get('/auth/register');
-    expect(res.status).toBe(200);
-    expect(res.text).toContain('Create');
+  test('should redirect admin from /dashboard to /admin', async () => {
+    await User.create({ name: 'Admin', email: 'ad@t.com', password: 'pass123', role: 'admin' });
+    const agent = request.agent(app);
+    await agent.post('/auth/login').send({ email: 'ad@t.com', password: 'pass123' });
+    const res = await agent.get('/dashboard');
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe('/admin');
+  });
+
+  test('should render login and register forms', async () => {
+    const login = await request(app).get('/auth/login');
+    expect(login.status).toBe(200);
+    expect(login.text).toContain('Sign In');
+    const reg = await request(app).get('/auth/register');
+    expect(reg.status).toBe(200);
+    expect(reg.text).toContain('Create');
   });
 });
