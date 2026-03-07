@@ -267,20 +267,30 @@ exports.updateRole = async function (req, res) {
 // POST /admin/users/:id/suspend — toggle suspend/activate
 exports.toggleSuspend = async function (req, res) {
   try {
-    // Cannot suspend yourself
-    if (req.params.id === req.session.userId.toString()) {
+    if (req.params.id === req.session.userId.toString())
       return res.redirect("/admin/users");
-    }
-
     var user = await User.findById(req.params.id);
     if (!user) return res.redirect("/admin/users");
 
-    // Toggle status
     user.status = user.status === "suspended" ? "active" : "suspended";
     await user.save();
 
+    // If suspending, immediately destroy all their active sessions
+    // Sessions are stored in MongoDB by connect-mongo in the 'sessions' collection
+    // Each session document has a 'session' field containing JSON with userId
+    if (user.status === "suspended") {
+      var mongoose = require("mongoose");
+      var db = mongoose.connection.db;
+      // connect-mongo stores sessions with the userId inside a JSON string
+      // We search for any session containing this user's ID and delete them all
+      await db.collection("sessions").deleteMany({
+        session: { $regex: user._id.toString() },
+      });
+    }
+
     res.redirect("/admin/users");
   } catch (err) {
+    console.error("Toggle suspend error:", err);
     res
       .status(500)
       .render("error", { message: "Failed to update user status" });
@@ -292,17 +302,28 @@ exports.deleteUser = async function (req, res) {
   try {
     if (req.params.id === req.session.userId.toString())
       return res.redirect("/admin/users");
+
+    // First, destroy all their active sessions immediately
+    // This logs them out before we delete their data
+    var mongoose = require("mongoose");
+    var db = mongoose.connection.db;
+    await db.collection("sessions").deleteMany({
+      session: { $regex: req.params.id },
+    });
+
+    // Then delete the user and all their data
     await Promise.all([
       User.findByIdAndDelete(req.params.id),
       Journey.deleteMany({ userId: req.params.id }),
       UserVehicle.deleteMany({ userId: req.params.id }),
     ]);
+
     res.redirect("/admin/users");
   } catch (err) {
+    console.error("Delete user error:", err);
     res.status(500).render("error", { message: "Failed to delete user" });
   }
 };
-
 // GET /admin/journeys — view, filter, sort ALL journeys from all users
 exports.listAllJourneys = async function (req, res) {
   try {
