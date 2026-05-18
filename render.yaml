@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: greenroute
+    runtime: node
+    rootDir: greenroute
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: BCRYPT_SALT_ROUNDS
+        value: 10
+      - key: ELEVATION_API_URL
+        value: https://api.open-elevation.com/api/v1/lookup
+      - key: MONGODB_URI
+        sync: false
+      - key: ORS_API_KEY
+        sync: false

@@ -7,6 +7,11 @@ const path = require("path");
 const connectDB = require("./config/db");
 
 const app = express();
+const isProduction = process.env.NODE_ENV === "production";
+
+if (isProduction) {
+  app.set("trust proxy", 1);
+}
 
 // ── Connect to MongoDB ────────────────────────────────────────
 connectDB();
@@ -34,7 +39,8 @@ app.use(
     }),
     cookie: {
       httpOnly: true,
-      secure: false,
+      secure: isProduction,
+      sameSite: "lax",
       maxAge: 24 * 60 * 60 * 1000,
     },
   }),
@@ -51,6 +57,10 @@ app.use((req, res, next) => {
     : null;
   res.locals.currentPath = req.path;
   next();
+});
+
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok" });
 });
 
 // ── Routes ────────────────────────────────────────────────────

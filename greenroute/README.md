@@ -101,6 +101,38 @@ http://localhost:3000
 
 ---
 
+# 🌐 Deploying Live
+
+This project is a Node.js/Express application, so it cannot be hosted with GitHub Pages. GitHub Pages only hosts static frontend files and will not run the Express server, EJS routes, MongoDB sessions, or API-backed features.
+
+The repository includes a `render.yaml` blueprint for deploying the app on Render.
+
+## Render Setup
+
+1. Push this repository to GitHub.
+2. Go to https://render.com and create a new Blueprint from this repository.
+3. Render will detect `render.yaml` in the repository root.
+4. Add the required secret environment variables:
+
+```
+MONGODB_URI=your_mongodb_connection_string
+ORS_API_KEY=your_openrouteservice_api_key
+```
+
+`SESSION_SECRET` is generated automatically by the Render blueprint.
+
+## After Deployment
+
+Seed the database from a Render shell if needed:
+
+```
+npm run seed:all
+```
+
+The deployed app will be available at the Render service URL.
+
+---
+
 # 📂 Important Notes
 
 - The `.env` file **should not be committed to GitHub**.
