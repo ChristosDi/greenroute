@@ -8,9 +8,14 @@ const connectDB = require("./config/db");
 
 const app = express();
 const isProduction = process.env.NODE_ENV === "production";
+const sessionSecret = process.env.SESSION_SECRET || "greenroute-dev-secret";
 
 if (isProduction) {
   app.set("trust proxy", 1);
+
+  if (!process.env.SESSION_SECRET) {
+    throw new Error("SESSION_SECRET must be set in production.");
+  }
 }
 
 // ── Connect to MongoDB ────────────────────────────────────────
@@ -30,7 +35,7 @@ app.use(express.static(path.join(__dirname, "public")));
 // ── Sessions ──────────────────────────────────────────────────
 app.use(
   session({
-    secret: process.env.SESSION_SECRET || "greenroute-secret-key",
+    secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
     store: MongoStore.create({
